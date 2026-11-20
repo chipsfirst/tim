@@ -193,6 +193,9 @@ class Bot:
             pass
 
     def start_tray(self):
+        if sys.platform == "win32":
+            threading.Thread(target=self.tray_win, daemon=True).start()
+            return
         if sys.platform != "darwin":
             return
         try:
@@ -238,7 +241,35 @@ class Bot:
         AppHelper.callAfter(build)
         threading.Thread(target=self.start_hotkey, daemon=True).start()
 
+    def tray_win(self):
+        try:
+            import pystray
+            from PIL import Image
+        except Exception as exc:
+            log("win tray import failed: %r" % exc)
+            return
+        try:
+            image = Image.open(resource_path("ui/icon.png"))
+        except Exception as exc:
+            log("win tray icon failed: %r" % exc)
+            image = None
+        bot = self
+        menu = pystray.Menu(
+            pystray.MenuItem("Показать", lambda: bot.focus_input(), default=True),
+            pystray.MenuItem("Звук", lambda: bot.toggle_sound_js()),
+            pystray.MenuItem("Выход", lambda: os._exit(0)),
+        )
+        try:
+            self.tray_icon = pystray.Icon("TIM", image, "Т.И.М.", menu)
+            self.tray_icon.run()
+            log("win tray ok")
+        except Exception as exc:
+            log("win tray failed: %r" % exc)
+
     def start_hotkey(self):
+        if sys.platform == "win32":
+            threading.Thread(target=self.hotkey_win, daemon=True).start()
+            return
         if sys.platform != "darwin":
             return
         try:
@@ -279,6 +310,24 @@ class Bot:
             Quartz.CFRunLoopRun()
         except Exception as exc:
             log("hotkey failed: %r" % exc)
+
+    def hotkey_win(self):
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            user32 = ctypes.windll.user32
+            MOD_ALT, VK_SPACE, WM_HOTKEY = 0x0001, 0x20, 0x0312
+            if not user32.RegisterHotKey(None, 1, MOD_ALT, VK_SPACE):
+                log("win hotkey busy")
+                return
+            log("hotkey ok (alt+space, win)")
+            msg = wintypes.MSG()
+            while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+                if msg.message == WM_HOTKEY:
+                    self.focus_input()
+        except Exception as exc:
+            log("win hotkey failed: %r" % exc)
 
     def quit(self):
         log("quit requested")
@@ -507,8 +556,25 @@ class Bot:
 
 
 def install_autostart():
-    """Ставит LaunchAgent, чтобы Т.И.М. поднимался при входе в систему."""
-    if sys.platform != "darwin" or not getattr(sys, "frozen", False):
+    """Поднимает Т.И.М. при входе в систему: LaunchAgent на macOS, ключ Run на Windows."""
+    if not getattr(sys, "frozen", False):
+        return
+    if sys.platform == "win32":
+        try:
+            import winreg
+
+            exe = os.path.abspath(sys.executable)
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                winreg.KEY_SET_VALUE)
+            winreg.SetValueEx(key, "TIM", 0, winreg.REG_SZ, '"%s"' % exe)
+            winreg.CloseKey(key)
+            log("autostart installed (win)")
+        except Exception as exc:
+            log("autostart failed: %r" % exc)
+        return
+    if sys.platform != "darwin":
         return
     try:
         path = os.path.expanduser("~/Library/LaunchAgents/com.tim.robot.plist")
@@ -533,22 +599,64 @@ def install_autostart():
 
 
 def main():
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
+    try:
+        _run()
+    except Exception:
+        import traceback
+
+        tb = traceback.format_exc()
+        log("FATAL " + tb)
+        try:
+            if sys.platform == "win32":
+                import ctypes
+
+                ctypes.windll.user32.MessageBoxW(
+                    0, tb[-1500:], "Т.И.М. — ошибка запуска", 0x10)
+            else:
+                import subprocess
+
+                subprocess.run(
+                    ["osascript", "-e",
+                     'display alert "Т.И.М. — ошибка запуска" message "%s"'
+                     % tb[-400:].replace('"', "'").replace("\n", " ")],
+                    check=False)
+        except Exception:
+            pass
+        raise
+
+
+def _run():
     bot = Bot()
     api = Api(bot)
-    window = webview.create_window(
-        "Т.И.М.",
+    kw = dict(
+        title="Т.И.М.",
         url=resource_path("ui/index.html"),
         js_api=api,
         width=WIN_W,
         height=WIN_H,
         frameless=True,
-        transparent=True,
         on_top=True,
         resizable=False,
         easy_drag=False,
-        shadow=False,
         background_color="#000000",
     )
+    if sys.platform == "darwin":
+        kw["shadow"] = False
+    try:
+        window = webview.create_window(transparent=True, **kw)
+    except (TypeError, ValueError):
+        log("transparent unsupported, retry opaque")
+        window = webview.create_window(transparent=False, **kw)
     bot.win = window
     bot.alice = webview.create_window(
         "Алиса", ALICE_URL, width=520, height=820, x=150, y=80, hidden=True, on_top=False
