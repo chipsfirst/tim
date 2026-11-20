@@ -388,7 +388,9 @@ window.addEventListener("blur", () => {
 
 window.TIM = {
   state(s) {
-    if (s && "hover" in s) onHover(!!s.hover);
+    if (!s) return;
+    if ("hover" in s) onHover(!!s.hover);
+    if ("sleep" in s) document.body.classList.toggle("g-sleep", !!s.sleep);
   },
 };
 

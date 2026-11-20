@@ -131,6 +131,11 @@ class Bot:
         self.alice_lock = threading.Lock()
         self.btn_sound = True
 
+        self.dragging = False
+        self.drag_off = (0.0, 0.0)
+        self.last_activity = time.time()
+        self.sleeping = False
+
     # -------------------------------------------------- окно
 
     def work_area(self):
@@ -233,7 +238,7 @@ class Bot:
             pass
 
     def track(self):
-        point, _ = self.cursor()
+        point, down = self.cursor()
         if point is None:
             self.hover = False
             return
@@ -242,6 +247,26 @@ class Bot:
         over_panel = self._inside(self.regions["panel"], px, py)
         self.hover = over_robot or over_panel
         self.set_click_through(not self.hover)
+
+        if down and over_robot and not self.dragging:
+            self.dragging = True
+            self.drag_off = (px, py)
+        if self.dragging:
+            if not down:
+                self.dragging = False
+            else:
+                self.x = point[0] - self.drag_off[0]
+                self.y = point[1] - self.drag_off[1]
+                try:
+                    self.win.move(int(self.x), int(self.y))
+                except Exception:
+                    pass
+
+        if self.hover or self.dragging:
+            self.last_activity = time.time()
+            self.sleeping = False
+        elif time.time() - self.last_activity > 180:
+            self.sleeping = True
 
     # -------------------------------------------------- Алиса
 
@@ -372,7 +397,8 @@ class Bot:
         if not self.ready or self.win is None:
             return
         try:
-            self.win.evaluate_js("window.TIM && window.TIM.state(%s)" % json.dumps({"hover": self.hover}))
+            self.win.evaluate_js("window.TIM && window.TIM.state(%s)"
+                                 % json.dumps({"hover": self.hover, "sleep": self.sleeping}))
         except Exception:
             pass
 
