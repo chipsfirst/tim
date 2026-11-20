@@ -13,9 +13,10 @@ import time
 
 import webview
 
+import platform_impl as plat
+
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-WIN_W, WIN_H = 340, 500
 ALICE_URL = "https://alice.yandex.ru/"
 
 if sys.platform == "win32":
@@ -73,16 +74,56 @@ def resource_path(rel):
     return os.path.abspath(candidates[-1])
 
 
-def log(msg):
+def log_path():
+    if sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Logs")
+    else:
+        base = os.environ.get("TEMP") or os.path.expanduser("~")
+    return os.path.join(base, "TIM.log")
+
+
+def log(msg, level="info"):
+    """Пишет в TIM.log. Файл ротируется на мегабайте, чтобы не рос бесконечно."""
     try:
-        if sys.platform == "darwin":
-            base = os.path.join(os.path.expanduser("~"), "Library", "Logs")
-        else:
-            base = os.environ.get("TEMP") or os.path.expanduser("~")
-        with open(os.path.join(base, "TIM.log"), "a", encoding="utf-8") as fh:
-            fh.write("%s %s\n" % (time.strftime("%H:%M:%S"), msg))
+        path = log_path()
+        if os.path.exists(path) and os.path.getsize(path) > 1024 * 1024:
+            try:
+                os.replace(path, path + ".1")
+            except OSError:
+                pass
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("%s %-5s %s\n" % (time.strftime("%H:%M:%S"), level, msg))
     except Exception:
         pass
+
+
+def guard(where, exc):
+    """Единая точка для подавленных исключений — молча больше не глотаем."""
+    log("%s: %r" % (where, exc), "warn")
+
+def load_config():
+    try:
+        with open(resource_path("ui/config.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception as exc:
+        log("config: %r" % exc, "warn")
+        return {}
+
+
+CONFIG = load_config()
+WINDOW_CFG = CONFIG.get("window", {})
+LOOP_CFG = CONFIG.get("loop", {})
+
+WIN_W = int(WINDOW_CFG.get("width", 340))
+WIN_H = int(WINDOW_CFG.get("height", 500))
+
+CONFIG = load_config()
+WINDOW_CFG = CONFIG.get("window", {})
+LOOP_CFG = CONFIG.get("loop", {})
+
+WIN_W = int(WINDOW_CFG.get("width", 340))
+WIN_H = int(WINDOW_CFG.get("height", 500))
+
 
 
 class Api:
@@ -106,6 +147,10 @@ class Api:
     def login(self):
         log("login pressed")
         return "opened" if self.bot.show_alice() else "failed"
+
+    def log_js(self, message, source="", line=0):
+        log("js: %s (%s:%s)" % (str(message)[:400], source, line), "error")
+        return True
 
     def quit(self):
         self.bot.quit()
@@ -139,45 +184,45 @@ class Bot:
     # -------------------------------------------------- окно
 
     def work_area(self):
-        try:
-            if sys.platform == "darwin":
-                from AppKit import NSScreen
-
-                screen = NSScreen.mainScreen().frame()
-                frame = NSScreen.mainScreen().visibleFrame()
-                top = screen.size.height - (frame.origin.y + frame.size.height)
-                return int(frame.origin.x), int(top), int(frame.size.width), int(frame.size.height)
-            if sys.platform == "win32":
-                import win_backend
-
-                return win_backend.work_area()
-        except Exception:
-            pass
+        area = plat.work_area()
+        if area:
+            return area
         screen = webview.screens[0]
         return screen.x, screen.y, screen.width, screen.height
 
     def setup_position(self):
         wx, wy, ww, wh = self.work_area()
-        self.x = float(wx + ww - WIN_W - 12)
-        self.y = float(wy + wh - WIN_H - 2)
+        self.x = float(wx + ww - WIN_W - int(WINDOW_CFG.get("margin_right", 12)))
+        self.y = float(wy + wh - WIN_H - int(WINDOW_CFG.get("margin_bottom", 2)))
 
     def place(self):
         if self.placed or self.win is None:
             return
         try:
-            self.win.move(int(self.x), int(self.y))
+            plat.move_window(self.win, self.x, self.y)
             self.placed = True
-        except Exception:
-            pass
+        except Exception as exc:
+            guard("place", exc)
 
     def on_ready(self):
         self.ready = True
         self.place()
-        if sys.platform == "win32":
-            import win_backend
-
-            win_backend.Drag(self).start()
+        plat.start_drag(self)
+        threading.Thread(target=self.audit_menu, daemon=True).start()
         threading.Thread(target=self.start_tray, daemon=True).start()
+
+    def audit_menu(self):
+        """Проверяет, что у каждого пункта меню есть обработчик."""
+        time.sleep(3)
+        try:
+            bad = self.win.evaluate_js(
+                "(window.TIM && window.TIM.menu) ? window.TIM.menu.audit() : ['menu']")
+            if bad:
+                log("menu audit: без обработчика %r" % (bad,), "error")
+            else:
+                log("menu audit ok")
+        except Exception as exc:
+            guard("audit_menu", exc)
 
     def log(self, msg):
         log(msg)
@@ -188,114 +233,22 @@ class Bot:
     def focus_input(self):
         try:
             self.win.evaluate_js("document.getElementById('q').focus()")
-        except Exception:
-            pass
+        except Exception as exc:
+            guard("focus_input", exc)
 
     def toggle_sound_js(self):
         try:
             self.win.evaluate_js(
                 "document.getElementById('sound')"
                 ".dispatchEvent(new MouseEvent('click',{bubbles:true}))")
-        except Exception:
-            pass
+        except Exception as exc:
+            guard("toggle_sound_js", exc)
 
     def start_tray(self):
-        if sys.platform == "win32":
-            import win_backend
-
-            win_backend.start_tray(self)
-            return
-        if sys.platform != "darwin":
-            return
-        try:
-            from AppKit import (NSStatusBar, NSMenu, NSMenuItem,
-                                NSVariableStatusItemLength)
-            from Foundation import NSObject
-            from PyObjCTools import AppHelper
-        except Exception as exc:
-            log("tray import failed: %r" % exc)
-            return
-
-        bot = self
-
-        class TrayTarget(NSObject):
-            def show_(self, sender):
-                bot.focus_input()
-
-            def sound_(self, sender):
-                bot.toggle_sound_js()
-
-            def quit_(self, sender):
-                os._exit(0)
-
-        def build():
-            try:
-                item = NSStatusBar.systemStatusBar().statusItemWithLength_(
-                    NSVariableStatusItemLength)
-                item.button().setTitle_("Т")
-                menu = NSMenu.alloc().init()
-                target = TrayTarget.alloc().init()
-                for title, sel in (("Показать", b"show:"), ("Звук", b"sound:"),
-                                   ("Выход", b"quit:")):
-                    mi = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, sel, "")
-                    mi.setTarget_(target)
-                    menu.addItem_(mi)
-                item.setMenu_(menu)
-                self.tray_target = target
-                self.tray_item = item
-                log("native tray ok")
-            except Exception as exc:
-                log("tray build failed: %r" % exc)
-
-        AppHelper.callAfter(build)
-        threading.Thread(target=self.start_hotkey, daemon=True).start()
+        plat.start_tray(self)
 
     def start_hotkey(self):
-        if sys.platform == "win32":
-            import win_backend
-
-            win_backend.start_hotkey(self)
-            return
-        if sys.platform != "darwin":
-            return
-        try:
-            import Quartz
-        except Exception as exc:
-            log("hotkey import failed: %r" % exc)
-            return
-
-        def handler(proxy, etype, event, refcon):
-            try:
-                if etype == Quartz.kCGEventTapDisabledByTimeout:
-                    Quartz.CGEventTapEnable(self.tap, True)
-                    return event
-                flags = Quartz.CGEventGetFlags(event)
-                code = Quartz.CGEventGetIntegerValueField(
-                    event, Quartz.kCGKeyboardEventKeycode)
-                if code == 49 and (flags & Quartz.kCGEventFlagMaskAlternate):
-                    self.focus_input()
-                    return None
-            except Exception as exc:
-                log("hotkey handler: %r" % exc)
-            return event
-
-        try:
-            mask = Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown)
-            tap = Quartz.CGEventTapCreate(
-                Quartz.kCGSessionEventTap, Quartz.kCGHeadInsertEventTap,
-                Quartz.kCGEventTapOptionDefault, mask, handler, None)
-            if not tap:
-                log("hotkey tap failed: нужен доступ «Универсальный доступ»")
-                return
-            self.tap = tap
-            source = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
-            Quartz.CFRunLoopAddSource(
-                Quartz.CFRunLoopGetCurrent(), source, Quartz.kCFRunLoopCommonModes)
-            Quartz.CGEventTapEnable(tap, True)
-            log("hotkey ok (alt+space)")
-            Quartz.CFRunLoopRun()
-        except Exception as exc:
-            log("hotkey failed: %r" % exc)
+        plat.start_hotkey(self)
 
     def quit(self):
         log("quit requested")
@@ -303,68 +256,29 @@ class Bot:
 
     # -------------------------------------------------- мышь
 
-    def cursor(self):
-        try:
-            if sys.platform == "darwin":
-                from AppKit import NSEvent, NSScreen
-
-                point = NSEvent.mouseLocation()
-                height = NSScreen.mainScreen().frame().size.height
-                return (float(point.x), float(height - point.y)), NSEvent.pressedMouseButtons() > 0
-            if sys.platform == "win32":
-                import ctypes
-                from ctypes import wintypes
-
-                point = wintypes.POINT()
-                ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
-                return (float(point.x), float(point.y)), bool(ctypes.windll.user32.GetKeyState(0x01) & 0x8000)
-        except Exception:
-            pass
-        return None, False
-
     def set_regions(self, robot, panel, extra=None):
         self.regions["robot"] = robot
         self.regions["panel"] = panel
         self.regions["extra"] = extra if isinstance(extra, list) else []
-        self.ignore_state = None
+
+    def cursor(self):
+        return plat.cursor()
 
     @staticmethod
     def _inside(rect, px, py):
         if not rect:
             return False
-        return rect["x"] <= px <= rect["x"] + rect["w"] and rect["y"] <= py <= rect["y"] + rect["h"]
+        return (rect["x"] <= px <= rect["x"] + rect["w"]
+                and rect["y"] <= py <= rect["y"] + rect["h"])
 
     def set_click_through(self, ignore):
-        if sys.platform == "win32":
-            # На Windows окно всегда принимает клики: прозрачное для мыши окно
-            # блокирует кнопки, а обращение к native.Handle из чужого потока
-            # подвешивает WinForms.
-            return
         if self.ignore_state == ignore:
             return
         self.ignore_state = ignore
-        try:
-            if sys.platform == "darwin":
-                native = getattr(self.win, "native", None)
-                if native is not None and hasattr(native, "setIgnoresMouseEvents_"):
-                    from PyObjCTools import AppHelper
-
-                    AppHelper.callAfter(native.setIgnoresMouseEvents_, bool(ignore))
-            elif sys.platform == "win32":
-                import ctypes
-
-                hwnd = int(self.win.native.Handle)
-                style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
-                if ignore:
-                    style |= 0x00080000 | 0x00000020
-                else:
-                    style &= ~0x00000020
-                ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
-        except Exception:
-            pass
+        plat.set_click_through(self.win, ignore)
 
     def track(self):
-        if sys.platform == "win32":
+        if plat.OWNS_DRAG:
             return
         point, down = self.cursor()
         if point is None:
@@ -387,14 +301,14 @@ class Bot:
                 self.x = point[0] - self.drag_off[0]
                 self.y = point[1] - self.drag_off[1]
                 try:
-                    self.win.move(int(self.x), int(self.y))
-                except Exception:
-                    pass
+                    plat.move_window(self.win, self.x, self.y)
+                except Exception as exc:
+                    guard("drag", exc)
 
         if self.hover or self.dragging:
             self.last_activity = time.time()
             self.sleeping = False
-        elif time.time() - self.last_activity > 180:
+        elif time.time() - self.last_activity > LOOP_CFG.get("sleep_after_s", 180):
             self.sleeping = True
 
     # -------------------------------------------------- Алиса
@@ -456,12 +370,7 @@ class Bot:
             except Exception as exc:
                 log("alice set failed: %r" % exc)
 
-        if sys.platform == "darwin":
-            from PyObjCTools import AppHelper
-
-            AppHelper.callAfter(act)
-        else:
-            act()
+        plat.call_soon(act)
 
     def _wake_alice(self, win):
         self._alice_set(0.0, True, -2600, -2600)
@@ -513,20 +422,20 @@ class Bot:
                 if self.win is not None:
                     self.track()
                     tick += 1
-                    if tick % 3 == 0:
+                    if tick % LOOP_CFG.get("push_every", 3) == 0:
                         self.push()
-                    if tick % 100 == 0:
+                    if tick % LOOP_CFG.get("heartbeat_every", 100) == 0:
                         log("alive tick=%d hover=%s drag=%s regions=%s"
                             % (tick, self.hover, self.dragging,
                                bool(self.regions.get("robot"))))
-                    if tick % 10 == 0:
+                    if tick % LOOP_CFG.get("quit_check_every", 10) == 0:
                         if self.win.evaluate_js("window.TIM && window.TIM.quit") is True:
                             log("quit flag seen")
                             os._exit(0)
             except Exception as exc:
                 if tick % 100 == 0:
                     log("loop: %r" % exc)
-            time.sleep(0.1)
+            time.sleep(LOOP_CFG.get("tick_ms", 100) / 1000.0)
 
     def push(self):
         if not self.ready or self.win is None:
@@ -534,49 +443,20 @@ class Bot:
         try:
             self.win.evaluate_js("window.TIM && window.TIM.state(%s)"
                                  % json.dumps({"hover": self.hover, "sleep": self.sleeping}))
-        except Exception:
-            pass
+        except Exception as exc:
+            guard("push", exc)
 
 
 def install_autostart():
-    """Поднимает Т.И.М. при входе в систему: LaunchAgent на macOS, ключ Run на Windows."""
-    if not getattr(sys, "frozen", False):
-        return
-    if sys.platform == "win32":
-        import win_backend
-
-        if win_backend.install_autostart():
-            log("autostart installed (win)")
-        return
-    if sys.platform != "darwin":
-        return
-    try:
-        path = os.path.expanduser("~/Library/LaunchAgents/com.tim.robot.plist")
-        if os.path.exists(path):
-            return
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        exe = os.path.abspath(sys.executable)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(
-                '<?xml version="1.0" encoding="UTF-8"?>\n'
-                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
-                '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
-                '<plist version="1.0"><dict>'
-                '<key>Label</key><string>com.tim.robot</string>'
-                '<key>ProgramArguments</key><array><string>%s</string></array>'
-                '<key>RunAtLoad</key><true/>'
-                '</dict></plist>\n' % exe
-            )
+    """Поднимает Т.И.М. при входе в систему средствами платформы."""
+    if plat.install_autostart():
         log("autostart installed")
-    except Exception as exc:
-        log("autostart failed: %r" % exc)
+    else:
+        log("autostart skipped", "warn")
 
 
 def main():
-    if sys.platform == "win32":
-        import win_backend
-
-        win_backend.dpi_setup()
+    plat.setup()
     try:
         _run()
     except Exception:

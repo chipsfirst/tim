@@ -18,6 +18,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pywebview pyobjc-framework-Quartz pyinstaller
+      - run: python -m unittest discover -s tests -v
       - run: python -m PyInstaller --name TIM --windowed --noconfirm --clean --icon icon.icns --add-data "ui:ui" --hidden-import webview.platforms.cocoa --hidden-import objc --hidden-import Quartz --osx-bundle-identifier com.tim.robot main.py
       - run: hdiutil create -volname "Т.И.М." -srcfolder dist/TIM.app -ov -format UDZO TIM-mac.dmg
       - uses: actions/upload-artifact@v4
@@ -34,6 +35,8 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pywebview pythonnet pyinstaller pystray pillow
+      - name: Проверка синтаксиса JS
+        run: node --check ui/app.js && node --check ui/js/audio.js && node --check ui/js/faces.js && node --check ui/js/stats.js && node --check ui/js/tetris.js && node --check ui/js/menu.js
       - shell: cmd
         run: python -m PyInstaller --name TIM --windowed --noconfirm --clean --icon icon.ico --add-data "ui;ui" --collect-all pythonnet --hidden-import clr --hidden-import clr_loader --hidden-import webview.platforms.winforms --hidden-import webview.platforms.edgechromium --hidden-import pystray._win32 --hidden-import PIL.Image main.py
       - run: choco install innosetup -y --no-progress

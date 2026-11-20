@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Т.И.М.</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/menu.css">
+<link rel="stylesheet" href="css/tetris.css">
 </head>
 <body>
 
@@ -29,24 +31,58 @@
       <pattern id="scan" width="4" height="4" patternUnits="userSpaceOnUse">
         <rect width="4" height="2" fill="#000000" opacity="0.3"/>
       </pattern>
-      <radialGradient id="glass" cx="50%" cy="38%" r="76%">
-        <stop offset="0%" stop-color="#20432A" stop-opacity="0.5"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+      <radialGradient id="glass" cx="42%" cy="30%" r="80%">
+        <stop offset="0%" stop-color="#2E5C3C" stop-opacity="0.45"/>
+        <stop offset="55%" stop-color="#102415" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0.35"/>
       </radialGradient>
+      <linearGradient id="case" x1="0.1" y1="0" x2="0.75" y2="1">
+        <stop offset="0%" stop-color="#F0EADB"/>
+        <stop offset="42%" stop-color="#DCD4C0"/>
+        <stop offset="100%" stop-color="#B0A691"/>
+      </linearGradient>
+      <linearGradient id="caseTop" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="bezel" x1="0" y1="0" x2="0.6" y2="1">
+        <stop offset="0%" stop-color="#4A4438"/>
+        <stop offset="48%" stop-color="#332F27"/>
+        <stop offset="100%" stop-color="#221F19"/>
+      </linearGradient>
+      <linearGradient id="btnFace" x1="0.2" y1="0" x2="0.8" y2="1">
+        <stop offset="0%" stop-color="#E8E1D0"/>
+        <stop offset="55%" stop-color="#CFC7B4"/>
+        <stop offset="100%" stop-color="#A99F8A"/>
+      </linearGradient>
+      <linearGradient id="post" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#9C9382"/>
+        <stop offset="35%" stop-color="#D6CEBB"/>
+        <stop offset="100%" stop-color="#8F8674"/>
+      </linearGradient>
     </defs>
 
     <ellipse cx="110" cy="246" rx="44" ry="4" fill="#000" opacity="0.15"/>
 
     <!-- подставка -->
-    <rect x="104" y="222" width="12" height="16" fill="#B9B09C" stroke="#6E675A" stroke-width="2"/>
+    <rect x="104" y="222" width="12" height="16" fill="url(#post)" stroke="#6E675A" stroke-width="2"/>
     <rect x="86" y="238" width="48" height="7" rx="3.5" fill="#C9C2B1" stroke="#6E675A" stroke-width="2.5"/>
 
     <!-- корпус -->
-    <rect x="16" y="90" width="188" height="132" rx="10" fill="#CFC8B7" stroke="#6E675A" stroke-width="3"/>
+    <rect x="16" y="90" width="188" height="132" rx="11" fill="url(#case)" stroke="#6E675A" stroke-width="3"/>
+    <rect x="19" y="93" width="182" height="126" rx="9" fill="url(#caseTop)" opacity="0.9"/>
+    <rect x="19" y="196" width="182" height="23" rx="9" fill="#8F8674" opacity="0.22"/>
+    <path d="M22 92.5 h176" stroke="#FFFDF6" stroke-width="1.6" opacity="0.75" stroke-linecap="round"/>
+    <circle cx="24.5" cy="98.5" r="1.5" fill="#8B8271" opacity="0.7"/>
+    <circle cx="195.5" cy="98.5" r="1.5" fill="#8B8271" opacity="0.7"/>
+    <circle cx="24.5" cy="213.5" r="1.5" fill="#8B8271" opacity="0.7"/>
+    <circle cx="195.5" cy="213.5" r="1.5" fill="#8B8271" opacity="0.7"/>
 
     <!-- экран почти во всю ширину корпуса -->
-    <rect id="screen" x="34" y="98" width="140" height="106" rx="6" fill="#071108"/>
-    <rect x="34" y="98" width="140" height="106" rx="6" fill="url(#glass)"/>
+    <rect x="29" y="94" width="150" height="108" rx="9" fill="url(#bezel)" stroke="#6E675A" stroke-width="1.4"/>
+    <rect x="31.5" y="96.5" width="145" height="103" rx="7" fill="none" stroke="#000000" stroke-width="1.8" opacity="0.5"/>
+    <rect id="screen" x="34" y="99" width="140" height="98" rx="6" fill="#071108"/>
+    <rect x="34" y="99" width="140" height="98" rx="6" fill="url(#glass)"/>
 
     <g id="eyes" shape-rendering="crispEdges">
       <g class="eye" data-side="left">
@@ -64,32 +100,65 @@
     </g>
 
     <g id="mouth" shape-rendering="crispEdges" fill="#3CFF86">
-      <rect x="88" y="146" width="4" height="4"/>
-      <rect x="92" y="150" width="28" height="4"/>
-      <rect x="120" y="146" width="4" height="4"/>
+      <g id="face-smile">
+        <rect x="88" y="146" width="4" height="4"/>
+        <rect x="92" y="150" width="28" height="4"/>
+        <rect x="120" y="146" width="4" height="4"/>
+      </g>
+      <g id="face-open">
+        <rect x="94" y="143" width="20" height="4"/>
+        <rect x="92" y="147" width="24" height="4"/>
+        <rect x="92" y="151" width="24" height="4"/>
+        <rect x="94" y="155" width="20" height="3"/>
+        <rect x="96" y="147" width="16" height="8" fill="#0E3A1B"/>
+      </g>
+      <g id="face-wide">
+        <rect x="82" y="146" width="44" height="4"/>
+        <rect x="86" y="150" width="36" height="4"/>
+        <rect x="90" y="154" width="28" height="3"/>
+        <rect x="88" y="148" width="6" height="3" fill="#DFFFEC"/>
+        <rect x="100" y="148" width="6" height="3" fill="#DFFFEC"/>
+        <rect x="112" y="148" width="6" height="3" fill="#DFFFEC"/>
+      </g>
+      <g id="face-flat">
+        <rect x="92" y="150" width="24" height="4"/>
+      </g>
+      <g id="face-o">
+        <rect x="98" y="145" width="12" height="10" fill="#0E3A1B"/>
+        <rect x="96" y="147" width="2" height="6"/>
+        <rect x="110" y="147" width="2" height="6"/>
+        <rect x="98" y="143" width="12" height="2"/>
+        <rect x="98" y="155" width="12" height="2"/>
+      </g>
+      <g id="face-tongue">
+        <rect x="88" y="146" width="4" height="4"/>
+        <rect x="92" y="150" width="28" height="4"/>
+        <rect x="120" y="146" width="4" height="4"/>
+        <rect x="98" y="154" width="10" height="6" fill="#FF6B8A"/>
+      </g>
     </g>
 
-    <rect id="scanrect" x="34" y="98" width="140" height="106" rx="6" fill="url(#scan)"/>
+    <rect id="scanrect" x="34" y="99" width="140" height="98" rx="6" fill="url(#scan)"/>
 
     <!-- кнопки справа от экрана -->
     <g id="power" class="btn">
-      <circle cx="190" cy="112" r="7.5" fill="#C9C2B1" stroke="#6E675A" stroke-width="1.7"/>
+      <circle cx="190" cy="112" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
       <path d="M190 107.8 v4.2" stroke="#6E675A" stroke-width="1.6" stroke-linecap="round"/>
       <path d="M187.2 109.2 a4.5 4.5 0 1 0 5.6 0" fill="none" stroke="#6E675A" stroke-width="1.3"/>
     </g>
 
     <g id="mbtn" class="btn">
-      <circle cx="190" cy="142" r="7.5" fill="#C9C2B1" stroke="#6E675A" stroke-width="1.7"/>
+      <circle cx="190" cy="142" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
       <path d="M186.4 139.4 h7.2 M186.4 142 h7.2 M186.4 144.6 h7.2" stroke="#5B5445" stroke-width="1.4" stroke-linecap="round"/>
     </g>
 
     <g id="sleepbtn" class="btn">
-      <circle cx="190" cy="172" r="7.5" fill="#C9C2B1" stroke="#6E675A" stroke-width="1.7"/>
+      <circle cx="190" cy="172" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
       <path d="M190 167.4 a5 5 0 1 0 5 6.6 5.8 5.8 0 0 1-5-6.6 z" fill="#6E675A"/>
     </g>
 
     <g id="sound" class="btn">
-      <circle cx="190" cy="202" r="7.5" fill="#C9C2B1" stroke="#6E675A" stroke-width="1.7"/>
+      <circle cx="190" cy="202" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
       <path d="M186.2 200 h1.9 l2.3-1.9 v6.4 l-2.3-1.9 h-1.9 z" fill="#6E675A"/>
       <path d="M192.2 199.4 a3.6 3.6 0 0 1 0 4.6" fill="none" stroke="#6E675A" stroke-width="1"/>
       <line id="sound-off" x1="185.6" y1="205" x2="193.4" y2="199.2" stroke="#B4442E" stroke-width="1.7" stroke-linecap="round"/>
@@ -118,138 +187,16 @@
   </svg>
 </div>
 
-<script src="app.js"></script>
-<style>
-#tw{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);display:none;z-index:9;background:#071108;border:2px solid #2f4a36;border-radius:8px}
-#tw.on{display:block}
-#tbtn{position:absolute;right:10px;bottom:196px;z-index:8;border:0;border-radius:9px;padding:3px 9px;font:inherit;font-size:11px;background:rgba(252,254,255,.95);color:#3E6DA8;cursor:pointer}
-#tx{position:absolute;left:50%;bottom:64px;transform:translateX(40px);display:none;z-index:10;width:28px;height:28px;border:0;border-radius:50%;background:rgba(252,254,255,.95);color:#B4442E;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(30,45,60,.2)}
-#tw.on ~ #tx{display:block}
-</style>
 <canvas id="tw" width="140" height="280"></canvas>
-<button id="tbtn">Тетрис</button>
 <button id="tx" title="Выйти (Esc)">✕</button>
-<script>
-(function () {
-  var c = document.getElementById('tw'), x = c.getContext('2d'), W = 10, H = 20, S = 14;
-  var P = [[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],
-           [[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
-  var g, cur, px, py, score, over, timer;
+<div id="menu" role="menu"></div>
 
-  function spawn() {
-    cur = P[Math.floor(Math.random() * P.length)].map(function (r) { return r.slice(); });
-    px = 3; py = 0;
-    if (hit(0, 0)) { over = true; stop(); }
-  }
-  function hit(dx, dy, sh) {
-    sh = sh || cur;
-    for (var y = 0; y < sh.length; y++) for (var xx = 0; xx < sh[y].length; xx++) {
-      if (!sh[y][xx]) continue;
-      var nx = px + xx + dx, ny = py + y + dy;
-      if (nx < 0 || nx >= W || ny >= H) return true;
-      if (ny >= 0 && g[ny][nx]) return true;
-    }
-    return false;
-  }
-  function rot() {
-    var r = cur[0].map(function (_, i) { return cur.map(function (row) { return row[i]; }).reverse(); });
-    if (!hit(0, 0, r)) cur = r;
-  }
-  function clearRows() {
-    for (var y = H - 1; y >= 0; y--) {
-      if (g[y].every(function (v) { return v; })) {
-        g.splice(y, 1); g.unshift(Array(W).fill(0)); score += 100; y++;
-      }
-    }
-  }
-  function lock() {
-    cur.forEach(function (row, y) {
-      row.forEach(function (v, xx) {
-        if (v && py + y >= 0) g[py + y][px + xx] = 1;
-      });
-    });
-    clearRows(); spawn();
-  }
-  function draw() {
-    x.fillStyle = '#071108'; x.fillRect(0, 0, c.width, c.height);
-    x.fillStyle = '#3CFF86';
-    g.forEach(function (row, y) { row.forEach(function (v, xx) { if (v) x.fillRect(xx * S, y * S, S - 1, S - 1); }); });
-    if (!over) cur.forEach(function (row, y) {
-      row.forEach(function (v, xx) { if (v && py + y >= 0) x.fillRect((px + xx) * S, (py + y) * S, S - 1, S - 1); });
-    });
-    x.fillStyle = '#66FF9E'; x.font = '10px monospace';
-    x.fillText(over ? 'GAME OVER' : 'SCORE ' + score, 4, 12);
-  }
-  function step() { if (over) return; if (hit(0, 1)) lock(); else py++; draw(); }
-  function stop() { clearInterval(timer); }
-  function start() {
-    g = Array.from({ length: H }, function () { return Array(W).fill(0); });
-    score = 0; over = false; spawn(); c.classList.add('on');
-    stop(); timer = setInterval(step, 450); draw();
-  }
-
-  document.getElementById('tbtn').onclick = function (e) { e.stopPropagation(); start(); };
-  document.getElementById('tx').onclick = function (e) {
-    e.stopPropagation(); c.classList.remove('on'); stop();
-  };
-  document.addEventListener('keydown', function (e) {
-    if (!c.classList.contains('on')) return;
-    if (e.key === 'ArrowLeft' && !hit(-1, 0)) px--;
-    else if (e.key === 'ArrowRight' && !hit(1, 0)) px++;
-    else if (e.key === 'ArrowDown' && !hit(0, 1)) py++;
-    else if (e.key === 'ArrowUp') rot();
-    else if (e.key === ' ') { while (!hit(0, 1)) py++; }
-    else if (e.key === 'Escape') { c.classList.remove('on'); stop(); return; }
-    e.preventDefault(); draw();
-  });
-})();
-</script>
-<style>
-#chips,#tbtn{display:none}
-#menu{position:absolute;left:calc(50% - 86px);bottom:56px;z-index:12;display:none;flex-direction:column;gap:1px;padding:2px 2px;width:159px;height:120px;overflow-y:auto;border:2px solid #CFC8B7;outline:1px solid #6E675A;border-radius:5px;background:repeating-linear-gradient(#071108 0 2px,#0A1A0F 2px 3px);box-shadow:inset 0 0 16px rgba(60,255,134,.16),0 6px 18px rgba(30,45,60,.28)}
-#menu.on{display:flex}
-#menu button{border:0;border-radius:2px;padding:1px 4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:9px;line-height:1.22;text-align:left;background:transparent;color:#66FF9E;cursor:pointer;white-space:nowrap;text-shadow:0 0 4px rgba(102,255,158,.5)}
-#menu button:hover{background:#123020;color:#B9FFD4}
-#menu::-webkit-scrollbar{width:4px}
-#menu::-webkit-scrollbar-thumb{background:#2A5A3A;border-radius:2px}
-#menu::-webkit-scrollbar-thumb{background:#2A5A3A;border-radius:2px}
-</style>
-<div id="menu">
-  <button data-act="feed">Покормить</button>
-  <button data-act="charge">Заряд</button>
-  <button data-act="dance">Танец</button>
-  <button data-act="weather">Погода</button>
-  <button data-act="time">Время</button>
-  <button data-act="joke">Шутка</button>
-  <button data-act="info">Состояние</button>
-  <button data-act="tetris">Тетрис</button>
-</div>
-<script>
-(function () {
-  var m = document.getElementById('menu'), b = document.getElementById('mbtn');
-  function close() { m.classList.remove('on'); if (window.reportRegions) reportRegions(); }
-  b.addEventListener('click', function (e) {
-    e.stopPropagation();
-    m.classList.toggle('on');
-    if (window.reportRegions) reportRegions();
-  });
-  document.addEventListener('click', function (e) {
-    if (!m.contains(e.target) && e.target !== b) close();
-  });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-  m.addEventListener('click', function (e) {
-    var act = e.target.dataset && e.target.dataset.act;
-    if (!act) return;
-    e.stopPropagation();
-    close();
-    var fn = window[act];
-    if (act === 'tetris') document.getElementById('tbtn').click();
-    else if (act === 'sound') document.getElementById('sound').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    else if (act === 'quit') document.getElementById('power').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    else if (typeof fn === 'function') fn();
-    else if (window.showAnswer) window.showAnswer('Команда «' + act + '» недоступна.', false);
-  });
-})();
-</script>
+<script src="js/config.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/faces.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/tetris.js"></script>
+<script src="js/menu.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

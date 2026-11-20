@@ -1,97 +1,28 @@
+// Ошибки из окна — в общий лог, а не в пустоту консоли.
+window.addEventListener("error", function (e) {
+  try {
+    var api = window.pywebview && window.pywebview.api;
+    if (api && api.log_js) api.log_js(e.message || "error", e.filename || "", e.lineno || 0);
+  } catch (err) { /* лог недоступен — молчим */ }
+});
+
+window.addEventListener("unhandledrejection", function (e) {
+  try {
+    var api = window.pywebview && window.pywebview.api;
+    if (api && api.log_js) api.log_js("promise: " + (e.reason && e.reason.message || e.reason), "", 0);
+  } catch (err) { /* лог недоступен — молчим */ }
+});
+
 const $ = (id) => document.getElementById(id);
 const API = () => (window.pywebview && window.pywebview.api) || null;
 
 let hover = false;
 let panelOpen = false;
 let busy = false;
-let muted = false;
-let audio = null;
-let gestureTimer = null;
 let hideTimer = null;
 let history = [];
 let histPos = -1;
 
-/* ---------------------------------------------- звук (R2-D2) */
-
-function ctx() {
-  if (!audio) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return null;
-    audio = new AC();
-  }
-  if (audio.state === "suspended") audio.resume();
-  return audio;
-}
-
-function blip(freq, dur, type, glide, vol) {
-  if (muted) return;
-  const ac = ctx();
-  if (!ac) return;
-  const now = ac.currentTime;
-  const osc = ac.createOscillator();
-  const gain = ac.createGain();
-  osc.type = type || "sine";
-  osc.frequency.setValueAtTime(freq, now);
-  if (glide) osc.frequency.exponentialRampToValueAtTime(Math.max(80, glide), now + dur);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(vol || 0.16, now + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-  osc.connect(gain);
-  gain.connect(ac.destination);
-  osc.start(now);
-  osc.stop(now + dur + 0.03);
-}
-
-function chirp(kind) {
-  if (kind === "think") {
-    blip(620, 0.09, "square", 900, 0.10);
-    setTimeout(() => blip(760, 0.08, "square", 520, 0.10), 110);
-    return;
-  }
-  if (kind === "ok") {
-    blip(880, 0.10, "sine", 1320, 0.14);
-    setTimeout(() => blip(1320, 0.12, "sine", 990, 0.12), 110);
-    setTimeout(() => blip(1180, 0.16, "sine", 1560, 0.11), 240);
-    return;
-  }
-  const n = 2 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < n; i += 1) {
-    const base = 520 + Math.random() * 900;
-    setTimeout(() => blip(base, 0.05 + Math.random() * 0.08, Math.random() < 0.5 ? "square" : "sine",
-                         base * (0.6 + Math.random() * 0.9), 0.09), i * 95);
-  }
-}
-
-/* ---------------------------------------------- жесты */
-
-const GESTURES = [
-  ["g-blink", 170],
-  ["g-left", 700],
-  ["g-right", 700],
-  ["g-happy", 900],
-  ["g-squint", 800],
-  ["g-scan", 1600],
-];
-
-function gesture(name, ms) {
-  document.body.classList.add(name);
-  clearTimeout(gestureTimer);
-  gestureTimer = setTimeout(() => document.body.classList.remove(name), ms);
-}
-
-function scheduleGesture() {
-  const delay = 3200 + Math.random() * 5200;
-  setTimeout(() => {
-    if (!busy) {
-      const g = GESTURES[Math.floor(Math.random() * GESTURES.length)];
-      gesture(g[0], g[1]);
-      if (Math.random() < 0.55) chirp();
-    }
-    scheduleGesture();
-  }, delay);
-}
-
-/* ---------------------------------------------- окошко */
 
 function setPanel(open) {
   panelOpen = open;
@@ -135,7 +66,8 @@ const IDLE = [
 ];
 
 function idleTalk() {
-  const delay = 150000 + Math.random() * 240000;
+  const delay = TIM.setting("humor.idle_min_ms", 150000)
+    + Math.random() * TIM.setting("humor.idle_max_ms", 240000);
   setTimeout(() => {
     if (!busy && !panelOpen) {
       showAnswer(IDLE[Math.floor(Math.random() * IDLE.length)], false);
@@ -277,21 +209,6 @@ function floppySound() {
   setTimeout(() => blip(150, 0.14, "sawtooth", 85, 0.07), 430);
 }
 
-function modemSound() {
-  [0, 240, 480, 720].forEach((t, i) => setTimeout(() => {
-    blip(1150 - i * 170, 0.18, "sawtooth", 320, 0.07);
-    blip(720 + i * 90, 0.16, "square", 1450, 0.05);
-  }, t));
-  setTimeout(() => blip(1750, 0.34, "sine", 380, 0.06), 980);
-}
-
-function modemLoop() {
-  setTimeout(() => {
-    if (!muted && !busy) modemSound();
-    modemLoop();
-  }, 210000 + Math.random() * 300000);
-}
-
 function dance() {
   const seq = [520, 660, 780, 660, 880, 780, 990];
   seq.forEach((f, i) => setTimeout(() => blip(f, 0.14, "square", f * 1.2, 0.12), i * 140));
@@ -319,7 +236,7 @@ function hungerLoop() {
       gesture("g-squint", 900);
       chirp();
     }
-  }, 600000);
+  }, TIM.setting("hunger.bite_ms", 600000));
 }
 
 [["Покормить", feed], ["Танец", dance]].forEach(([label, fn]) => {
@@ -332,8 +249,6 @@ function hungerLoop() {
   $("chips").appendChild(btn);
 });
 
-modemLoop();
-hungerLoop();
 
 window.feed = feed;
 window.dance = dance;
@@ -450,125 +365,18 @@ window.addEventListener("blur", () => {
   if (!hover && !$("q").value) setPanel(false);
 });
 
-window.TIM = {
-  state(s) {
-    if (!s) return;
-    if ("hover" in s) onHover(!!s.hover);
-    if ("sleep" in s) {
-      window.TIM.asleep = !!s.sleep;
-      document.body.classList.toggle("g-sleep", !!s.sleep);
-    }
-  },
+window.TIM = window.TIM || {};
+window.TIM.state = function (s) {
+  if (!s) return;
+  if ("hover" in s) onHover(!!s.hover);
+  if ("sleep" in s) {
+    window.TIM.asleep = !!s.sleep;
+    document.body.classList.toggle("g-sleep", !!s.sleep);
+  }
 };
 
 /* ---------------------------------------------- показатели (RPG) */
 
-const STATS = { batt: 100, hp: 100, sleep: 100 };
-try {
-  const saved = JSON.parse(localStorage.getItem("tim-stats") || "null");
-  if (saved) for (const k in STATS) if (typeof saved[k] === "number") STATS[k] = saved[k];
-} catch (e) {}
-
-const warned = { batt: false, hp: false, sleep: false };
-
-function bump(key, delta) {
-  STATS[key] = Math.max(0, Math.min(100, STATS[key] + delta));
-}
-
-function paintStats() {
-  const num = (id, v) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.textContent = String(Math.round(v));
-      el.setAttribute("fill", v < 20 ? "#B4442E" : v < 40 ? "#8A6A1E" : "#4A4436");
-    }
-  };
-  num("n-batt", STATS.batt);
-  num("n-hp", STATS.hp);
-  num("n-sleep", STATS.sleep);
-  document.body.classList.toggle("low-batt", STATS.batt < 20);
-  document.body.classList.toggle("low-hp", STATS.hp < 30);
-  document.body.classList.toggle("low-sleep", STATS.sleep < 15);
-}
-
-function saveStats() {
-  try { localStorage.setItem("tim-stats", JSON.stringify(STATS)); } catch (e) {}
-}
-
-function statReport() {
-  if (STATS.batt < 20 && !warned.batt) {
-    warned.batt = true;
-    showAnswer("Батарея садится. Дай заряд.", false);
-    gesture("g-squint", 900); chirp("bad");
-  } else if (STATS.batt > 40) warned.batt = false;
-
-  if (STATS.hp < 30 && !warned.hp) {
-    warned.hp = true;
-    showAnswer("Мне нездоровится. Покормишь?", false);
-    gesture("g-squint", 1200); chirp("bad");
-  } else if (STATS.hp > 55) warned.hp = false;
-
-  if (STATS.sleep < 15 && !warned.sleep) {
-    warned.sleep = true;
-    showAnswer("Глаза слипаются... дай поспать.", false);
-    gesture("g-sleep", 1500); chirp("ok");
-  } else if (STATS.sleep > 45) warned.sleep = false;
-}
-
-setInterval(() => {
-  bump("batt", -0.12);
-  bump("sleep", (window.TIM && window.TIM.asleep) ? 2.2 : -0.2);
-  bump("hp", (STATS.batt < 20 || STATS.sleep < 15) ? -0.12 : 0.05);
-  statReport();
-  paintStats();
-  saveStats();
-}, 15000);
-
-function word(v) {
-  if (v > 70) return "отлично";
-  if (v > 40) return "в норме";
-  if (v > 20) return "низко";
-  return "критично";
-}
-
-const sleepBtn = document.getElementById("sleepbtn");
-if (sleepBtn) {
-  sleepBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const off = document.body.classList.toggle("screen-off");
-    if (off) {
-      blip(220, 0.14, "sine", 90, 0.09);
-    } else {
-      chirp("ok");
-      gesture("g-blink", 300);
-    }
-  });
-}
-
-window.info = function () {
-  showAnswer(
-    "Батарея: " + Math.round(STATS.batt) + "% — " + word(STATS.batt) + "\n" +
-    "Здоровье: " + Math.round(STATS.hp) + "% — " + word(STATS.hp) + "\n" +
-    "Сон: " + Math.round(STATS.sleep) + "% — " + word(STATS.sleep),
-    false
-  );
-  gesture("g-blink", 400);
-};
-
-window.charge = function () {
-  showAnswer("Подключаюсь к розетке...", false);
-  gesture("g-think", 1200);
-  chirp("ok");
-  setTimeout(() => {
-    bump("batt", 100);
-    bump("hp", 8);
-    paintStats(); saveStats();
-    showAnswer("Заряжен на сто процентов.", false);
-    gesture("g-happy", 1200);
-  }, 2600);
-};
-
-paintStats();
 
 window.addEventListener("pywebviewready", () => {
   const a = API();
@@ -576,17 +384,39 @@ window.addEventListener("pywebviewready", () => {
   reportRegions();
 });
 
+if (window.TIM && TIM.menu) {
+  TIM.menu.mount([
+    { id: "feed", label: "Покормить", run: feed },
+    { id: "charge", label: "Заряд", run: function () { window.charge(); } },
+    { id: "dance", label: "Танец", run: dance },
+    { id: "weather", label: "Погода", run: quickWeather },
+    { id: "time", label: "Время", run: quickTime },
+    { id: "joke", label: "Шутка", run: quickJoke },
+    { id: "info", label: "Состояние", run: function () { window.info(); } },
+    { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
+  ]);
+}
+
 reportRegions();
 setTimeout(reportRegions, 800);
 setTimeout(reportRegions, 2500);
-scheduleGesture();
-idleTalk();
 
-setTimeout(() => {
-  showAnswer("Привет, друг! Я на связи.", false);
-  gesture("g-happy", 1200);
-  chirp("ok");
+function boot() {
+  modemLoop();
+  hungerLoop();
+  if (window.TIM && TIM.startStats) TIM.startStats();
+  scheduleGesture();
+  scheduleFace();
+  idleTalk();
   setTimeout(() => {
-    if (!busy) $("bubble").classList.remove("show");
-  }, 7000);
-}, 1500);
+    showAnswer("Привет, друг! Я на связи.", false);
+    gesture("g-happy", 1200);
+    chirp("ok");
+    setTimeout(() => {
+      if (!busy) $("bubble").classList.remove("show");
+    }, 7000);
+  }, 1500);
+}
+
+// Таймеры стартуют после чтения config.json, иначе числа не успеют примениться.
+(window.TIM && TIM.configReady ? TIM.configReady : Promise.resolve()).then(boot, boot);

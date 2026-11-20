@@ -229,3 +229,14 @@ body.screen-off #scanrect { opacity: 0; transition: opacity 0.18s ease; }
 body.screen-off #screen { fill: #030B05; }
 body.screen-off #robot svg { animation: none; }
 body.screen-off #led { fill: #2C5C3C; }
+
+/* ---------- рожицы ---------- */
+
+#mouth > g { display: none; }
+#face-smile { display: block; }
+body[class*="face-"] #face-smile { display: none; }
+body.face-open #face-open,
+body.face-wide #face-wide,
+body.face-flat #face-flat,
+body.face-o #face-o,
+body.face-tongue #face-tongue { display: block; }

@@ -1,0 +1,34 @@
+{
+  "window": {
+    "width": 340,
+    "height": 500,
+    "margin_right": 12,
+    "margin_bottom": 2
+  },
+  "loop": {
+    "tick_ms": 100,
+    "push_every": 3,
+    "quit_check_every": 10,
+    "heartbeat_every": 100,
+    "sleep_after_s": 180
+  },
+  "stats": {
+    "tick_ms": 15000,
+    "drain_battery": 0.12,
+    "drain_sleep": 0.2,
+    "regen_sleep": 2.2,
+    "damage_low": 0.12,
+    "heal_ok": 0.05
+  },
+  "humor": {
+    "face_min_ms": 5000,
+    "face_max_ms": 9000,
+    "idle_min_ms": 150000,
+    "idle_max_ms": 240000,
+    "modem_min_ms": 210000,
+    "modem_max_ms": 300000
+  },
+  "hunger": {
+    "bite_ms": 600000
+  }
+}

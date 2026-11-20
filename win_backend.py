@@ -20,6 +20,8 @@ HWND_TOPMOST = -1
 VK_LBUTTON = 0x01
 MOUSEEVENTF_LEFTDOWN = 0x0002
 
+OWNS_DRAG = True    # перетаскивание в своём потоке
+
 TICK = 1.0 / 60.0          # частота перетаскивания
 REACH = 2                  # запас попадания в зону, px
 
@@ -214,3 +216,26 @@ def install_autostart():
         return True
     except Exception:
         return False
+
+
+def setup():
+    dpi_setup()
+
+
+def move_window(win, x, y):
+    handle = hwnd_of(win)
+    if handle:
+        move(handle, x, y)
+
+
+def set_click_through(win, ignore):
+    """На Windows окно всегда принимает клики: иначе проваливаются кнопки."""
+    return None
+
+
+def start_drag(bot):
+    Drag(bot).start()
+
+
+def call_soon(fn):
+    fn()
