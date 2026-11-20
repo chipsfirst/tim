@@ -1,5 +1,8 @@
 name: build
 
+permissions:
+  contents: write
+
 on:
   push:
     tags: ["v*"]
@@ -38,3 +41,22 @@ jobs:
         with:
           name: windows
           path: TIM-win.zip
+
+  release:
+    needs: [mac, win]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Т.И.М. ${{ github.ref_name }}
+          body: |
+            CRT-компаньон: трей, ⌥Space, меню, тетрис, кормление, танец, звуки флоппи и модема.
+            macOS: распакуйте TIM-mac.zip (приложение без подписи — правый клик → Открыть).
+            Windows: распакуйте TIM-win.zip и запустите TIM/TIM.exe.
+          files: |
+            out/mac/TIM-mac.zip
+            out/windows/TIM-win.zip
