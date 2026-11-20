@@ -92,8 +92,8 @@ class Api:
     def ready(self):
         self.bot.on_ready()
 
-    def set_regions(self, robot, panel):
-        self.bot.set_regions(robot, panel)
+    def set_regions(self, robot, panel, extra=None):
+        self.bot.set_regions(robot, panel, extra)
 
     def set_panel(self, is_open):
         self.bot.panel_open = bool(is_open)
@@ -118,7 +118,7 @@ class Bot:
         self.placed = False
         self.stop_flag = False
 
-        self.regions = {"robot": None, "panel": None}
+        self.regions = {"robot": None, "panel": None, "extra": []}
         self.hover = False
         self.panel_open = False
         self.menu_open = False
@@ -354,9 +354,10 @@ class Bot:
             pass
         return None, False
 
-    def set_regions(self, robot, panel):
+    def set_regions(self, robot, panel, extra=None):
         self.regions["robot"] = robot
         self.regions["panel"] = panel
+        self.regions["extra"] = extra if isinstance(extra, list) else []
         self.ignore_state = None
 
     @staticmethod
@@ -402,7 +403,8 @@ class Bot:
         px, py = point[0] - self.x, point[1] - self.y
         over_robot = self._inside(self.regions["robot"], px, py)
         over_panel = self._inside(self.regions["panel"], px, py)
-        self.hover = over_robot or over_panel
+        over_extra = any(self._inside(r, px, py) for r in self.regions["extra"])
+        self.hover = over_robot or over_panel or over_extra
         self.set_click_through(not self.hover)
 
         if down and over_robot and not self.dragging:

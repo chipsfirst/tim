@@ -194,10 +194,11 @@
 <script>
 (function () {
   var m = document.getElementById('menu'), b = document.getElementById('mbtn');
-  function close() { m.classList.remove('on'); }
+  function close() { m.classList.remove('on'); if (window.reportRegions) reportRegions(); }
   b.addEventListener('click', function (e) {
     e.stopPropagation();
     m.classList.toggle('on');
+    if (window.reportRegions) reportRegions();
   });
   document.addEventListener('click', function (e) {
     if (!m.contains(e.target) && e.target !== b) close();

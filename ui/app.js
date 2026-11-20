@@ -246,14 +246,26 @@ async function ask() {
 
 /* ---------------------------------------------- зоны кликов */
 
+function rectOf(el, shown) {
+  if (!el || (shown && !el.classList.contains(shown))) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return null;
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+}
+
 function reportRegions() {
   const a = API();
   if (!a || !a.set_regions) return;
   const r = $("robot").getBoundingClientRect();
   const p = $("panel").getBoundingClientRect();
+  const extra = [
+    rectOf($("menu"), "on"),
+    rectOf($("bubble"), "show"),
+  ].filter(Boolean);
   a.set_regions(
     { x: r.left, y: r.top, w: r.width, h: r.height },
-    { x: p.left, y: p.top, w: p.width, h: p.height }
+    { x: p.left, y: p.top, w: p.width, h: p.height },
+    extra
   );
 }
 
