@@ -445,9 +445,12 @@ window.TIM = {
 window.addEventListener("pywebviewready", () => {
   const a = API();
   if (a && a.ready) a.ready();
+  reportRegions();
 });
 
 reportRegions();
+setTimeout(reportRegions, 800);
+setTimeout(reportRegions, 2500);
 scheduleGesture();
 idleTalk();
 

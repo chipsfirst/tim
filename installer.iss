@@ -1,6 +1,6 @@
 [Setup]
 AppName=Т.И.М.
-AppVersion=0.0.9
+AppVersion=0.1.0
 DefaultDirName={autopf}\TIM
 DefaultGroupName=Т.И.М.
 OutputDir=dist

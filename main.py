@@ -366,6 +366,11 @@ class Bot:
         return rect["x"] <= px <= rect["x"] + rect["w"] and rect["y"] <= py <= rect["y"] + rect["h"]
 
     def set_click_through(self, ignore):
+        if sys.platform == "win32":
+            # На Windows окно всегда принимает клики: прозрачное для мыши окно
+            # блокирует кнопки, а обращение к native.Handle из чужого потока
+            # подвешивает WinForms.
+            return
         if self.ignore_state == ignore:
             return
         self.ignore_state = ignore
@@ -535,14 +540,20 @@ class Bot:
             try:
                 if self.win is not None:
                     self.track()
-                    self.push()
                     tick += 1
-                    if tick % 5 == 0:
+                    if tick % 3 == 0:
+                        self.push()
+                    if tick % 100 == 0:
+                        log("alive tick=%d hover=%s drag=%s regions=%s"
+                            % (tick, self.hover, self.dragging,
+                               bool(self.regions.get("robot"))))
+                    if tick % 10 == 0:
                         if self.win.evaluate_js("window.TIM && window.TIM.quit") is True:
                             log("quit flag seen")
                             os._exit(0)
-            except Exception:
-                pass
+            except Exception as exc:
+                if tick % 100 == 0:
+                    log("loop: %r" % exc)
             time.sleep(0.1)
 
     def push(self):
