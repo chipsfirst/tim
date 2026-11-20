@@ -83,7 +83,7 @@ class MenuTest(unittest.TestCase):
         block = app[app.index("TIM.menu.mount(["):app.index("]);", app.index("TIM.menu.mount(["))]
         ids = re.findall(r'id: "([a-z]+)"', block)
         self.assertEqual(
-            ids, ["feed", "charge", "dance", "weather", "time", "joke", "info", "tetris"])
+            ids, ["feed", "charge", "dance", "weather", "time", "joke", "info", "diag", "update", "tetris"])
         self.assertEqual(block.count("run:"), len(ids))
 
     def test_menu_script_exists(self):

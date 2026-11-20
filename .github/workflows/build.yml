@@ -35,6 +35,8 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pywebview pythonnet pyinstaller pystray pillow
+      - name: Линтер JS
+        run: npx --yes eslint@8 --no-eslintrc --env browser,es2021 --parser-options=ecmaVersion:2021 --rule "{\"no-undef\":\"warn\",\"no-unused-vars\":\"warn\"}" ui/app.js ui/js/ || true
       - name: Проверка синтаксиса JS
         run: node --check ui/app.js && node --check ui/js/audio.js && node --check ui/js/faces.js && node --check ui/js/stats.js && node --check ui/js/tetris.js && node --check ui/js/menu.js
       - shell: cmd

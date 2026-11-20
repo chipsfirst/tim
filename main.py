@@ -126,6 +126,51 @@ WIN_H = int(WINDOW_CFG.get("height", 500))
 
 
 
+def state_path():
+    if sys.platform == "darwin":
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "TIM")
+    else:
+        base = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "TIM")
+    return os.path.join(base, "state.json")
+
+
+def read_state():
+    try:
+        with open(state_path(), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def write_state(data):
+    try:
+        path = state_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return True
+    except Exception as exc:
+        guard("write_state", exc)
+        return False
+
+
+def latest_tag():
+    """Спрашивает у GitHub последний релиз. Пустая строка — не вышло."""
+    import urllib.request
+
+    url = "https://api.github.com/repos/chipsfirst/tim/releases/latest"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "TIM"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.load(resp).get("tag_name", "")
+    except Exception as exc:
+        guard("latest_tag", exc)
+        return ""
+
+
 class Api:
     def __init__(self, bot):
         self.bot = bot
@@ -147,6 +192,15 @@ class Api:
     def login(self):
         log("login pressed")
         return "opened" if self.bot.show_alice() else "failed"
+
+    def load_stats(self):
+        return read_state()
+
+    def save_stats(self, data):
+        return write_state(data if isinstance(data, dict) else {})
+
+    def check_update(self):
+        return latest_tag()
 
     def log_js(self, message, source="", line=0):
         log("js: %s (%s:%s)" % (str(message)[:400], source, line), "error")

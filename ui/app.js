@@ -393,9 +393,41 @@ if (window.TIM && TIM.menu) {
     { id: "time", label: "Время", run: quickTime },
     { id: "joke", label: "Шутка", run: quickJoke },
     { id: "info", label: "Состояние", run: function () { window.info(); } },
+    { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
+    { id: "update", label: "Обновления", run: function () { window.checkUpdate(); } },
     { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
   ]);
 }
+
+window.diag = function () {
+  const api = API();
+  const lines = [
+    "Платформа: " + (navigator.platform || "?"),
+    "Экран: " + screen.width + "×" + screen.height,
+    "Окно: " + window.innerWidth + "×" + window.innerHeight,
+    "Масштаб: " + Math.round((window.devicePixelRatio || 1) * 100) + "%",
+    "Мост: " + (api ? "есть" : "нет"),
+    "Модули: " + Object.keys(window.TIM || {}).join(", "),
+    "Тик: " + TIM.setting("stats.tick_ms", "?") + " мс",
+    "Звук: " + (muted ? "выкл" : "вкл"),
+    "Батарея " + Math.round(STATS.batt) + "% · Здоровье "
+      + Math.round(STATS.hp) + "% · Сон " + Math.round(STATS.sleep) + "%",
+  ];
+  showAnswer(lines.join("\n"), false);
+};
+
+window.checkUpdate = function () {
+  const api = API();
+  if (!api || !api.check_update) {
+    showAnswer("Проверка обновлений недоступна.", false);
+    return;
+  }
+  showAnswer("Смотрю, нет ли новой версии…", true);
+  api.check_update().then((tag) => {
+    if (tag) showAnswer("Последняя версия: " + tag + ". Если у вас старее — скачайте с сайта.", false);
+    else showAnswer("Не удалось узнать версию — проверьте интернет.", false);
+  }).catch(() => showAnswer("Не удалось проверить обновления.", false));
+};
 
 reportRegions();
 setTimeout(reportRegions, 800);

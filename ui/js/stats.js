@@ -1,6 +1,6 @@
 // Показатели RPG: батарея, здоровье, сон.
 
-const STATS = { batt: 100, hp: 100, sleep: 100 };
+const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0 };
 try {
   const saved = JSON.parse(localStorage.getItem("tim-stats") || "null");
   if (saved) for (const k in STATS) if (typeof saved[k] === "number") STATS[k] = saved[k];
@@ -61,14 +61,52 @@ return setInterval(() => {
   bump("hp", (STATS.batt < 20 || STATS.sleep < 15)
     ? -TIM.setting("stats.damage_low", 0.12)
     : TIM.setting("stats.heal_ok", 0.05));
+  gainXp();
   statReport();
   paintStats();
   saveStats();
+  saveToDisk();
 }, TIM.setting("stats.tick_ms", 15000));
 }
 
+function loadFromDisk() {
+  const api = API();
+  if (!api || !api.load_stats) return;
+  api.load_stats().then((data) => {
+    if (!data) return;
+    Object.keys(STATS).forEach((k) => {
+      if (typeof data[k] === "number") STATS[k] = data[k];
+    });
+    paintStats();
+  }).catch(() => {});
+}
+
+function saveToDisk() {
+  const api = API();
+  if (!api || !api.save_stats) return;
+  api.save_stats({
+    batt: STATS.batt, hp: STATS.hp, sleep: STATS.sleep, xp: STATS.xp,
+  }).catch(() => {});
+}
+
+setTimeout(loadFromDisk, 1200);
+
 TIM.startStats = startStats;
 paintStats();
+
+function level() { return 1 + Math.floor(STATS.xp / 100); }
+function xpLeft() { return 100 - (STATS.xp % 100); }
+
+function gainXp() {
+  if (STATS.hp > 50 && STATS.batt > 30 && STATS.sleep > 40) {
+    STATS.xp += 1;
+    if (STATS.xp % 100 === 0) {
+      showAnswer("Уровень " + level() + "! Спасибо, что не забываешь.", false);
+      gesture("g-happy", 1400);
+      chirp("ok");
+    }
+  }
+}
 
 function word(v) {
   if (v > 70) return "отлично";
@@ -95,7 +133,8 @@ window.info = function () {
   showAnswer(
     "Батарея: " + Math.round(STATS.batt) + "% — " + word(STATS.batt) + "\n" +
     "Здоровье: " + Math.round(STATS.hp) + "% — " + word(STATS.hp) + "\n" +
-    "Сон: " + Math.round(STATS.sleep) + "% — " + word(STATS.sleep),
+    "Сон: " + Math.round(STATS.sleep) + "% — " + word(STATS.sleep) + "\n" +
+    "Уровень " + level() + " · опыт " + (STATS.xp % 100) + "/100 (ещё " + xpLeft() + ")",
     false
   );
   gesture("g-blink", 400);

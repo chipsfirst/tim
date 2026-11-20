@@ -1,7 +1,7 @@
 #chips{display:none}
 #menu{position:absolute;left:calc(50% - 86px);bottom:64px;z-index:12;display:none;flex-direction:column;gap:1px;padding:2px 2px;width:159px;height:111px;overflow-y:auto;border:2px solid #CFC8B7;outline:1px solid #6E675A;border-radius:5px;background:repeating-linear-gradient(#071108 0 2px,#0A1A0F 2px 3px);box-shadow:inset 0 0 16px rgba(60,255,134,.16),0 6px 18px rgba(30,45,60,.28)}
 #menu.on{display:flex}
-#menu button{border:0;border-radius:2px;padding:1px 4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:9px;line-height:1.22;text-align:left;background:transparent;color:#66FF9E;cursor:pointer;white-space:nowrap;text-shadow:0 0 4px rgba(102,255,158,.5)}
+#menu button{border:0;border-radius:2px;padding:1px 4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;line-height:1.35;text-align:left;background:transparent;color:#66FF9E;cursor:pointer;white-space:nowrap;text-shadow:0 0 4px rgba(102,255,158,.5)}
 #menu button:hover{background:#123020;color:#B9FFD4}
 #menu::-webkit-scrollbar{width:4px}
 #menu::-webkit-scrollbar-thumb{background:#2A5A3A;border-radius:2px}

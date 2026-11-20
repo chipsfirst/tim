@@ -22,6 +22,10 @@
   function toggle() {
     if (!el) return;
     el.classList.toggle("on");
+    if (el.classList.contains("on")) {
+      var first = el.querySelector("button");
+      if (first) first.focus();
+    }
     report();
   }
 
@@ -82,7 +86,20 @@
     });
 
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") { close(); return; }
+      if (!el.classList.contains("on")) return;
+      var items = Array.prototype.slice.call(el.querySelectorAll("button"));
+      if (!items.length) return;
+      var at = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        var step = e.key === "ArrowDown" ? 1 : -1;
+        var next = (at + step + items.length) % items.length;
+        items[next].focus();
+      } else if (e.key === "Enter" && at >= 0) {
+        e.preventDefault();
+        run(items[at].dataset.act);
+      }
     });
 
     el.addEventListener("click", function (e) {

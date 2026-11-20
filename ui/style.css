@@ -134,12 +134,12 @@ body.muted #sound { opacity: 0.7; }
 #q {
   flex: 1;
   min-width: 0;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border: 1.5px solid #D6E0EA;
   border-radius: 10px;
   background: #fff;
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   color: #22303F;
   outline: none;
 }
@@ -179,8 +179,8 @@ body.muted #sound { opacity: 0.7; }
   border-radius: 14px;
   background: rgba(252, 254, 255, 0.97);
   color: #22303F;
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: 15px;
+  line-height: 1.4;
   box-shadow: 0 8px 22px rgba(30, 45, 60, 0.2);
   opacity: 0;
   pointer-events: none;
