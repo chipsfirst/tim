@@ -17,9 +17,9 @@ html, body {
   position: absolute;
   left: 50%;
   bottom: 0;
-  width: 200px;
-  height: 236px;
-  margin-left: -100px;
+  width: 250px;
+  height: 286px;
+  margin-left: -125px;
   z-index: 2;
   filter: drop-shadow(0 4px 8px rgba(30, 45, 60, 0.25));
   animation: idle 4.5s ease-in-out infinite;
@@ -114,7 +114,7 @@ body.muted #sound { opacity: 0.7; }
 #panel {
   position: absolute;
   left: 50%;
-  bottom: 150px;
+  bottom: 200px;
   transform: translate(-50%, 0);
   display: flex;
   align-items: center;
@@ -167,11 +167,11 @@ body.muted #sound { opacity: 0.7; }
 #bubble {
   position: absolute;
   left: 50%;
-  bottom: 222px;
+  bottom: 272px;
   transform: translate(-50%, 8px) scale(0.96);
   width: 244px;
   max-width: 244px;
-  max-height: 185px;
+  max-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -200,6 +200,7 @@ body.muted #sound { opacity: 0.7; }
   transform: rotate(45deg);
   border-radius: 2px;
 }
+#bubble { white-space: pre-line; }
 #bubble.thinking { color: #6B7A8A; font-style: italic; }
 
 /* ---------- состояния показателей ---------- */
@@ -209,3 +210,22 @@ body.low-batt #robot svg { animation: crtFlicker 3.2s infinite; }
 body.low-hp #led { fill: #C2503C; }
 body.low-hp #mouth { opacity: 0.5; }
 body.low-sleep #mouth { opacity: 0.4; }
+
+/* ---------- экран выключен ---------- */
+
+#caret { display: none; }
+body.screen-off #caret {
+  display: block;
+  animation: caretBlink 1.05s steps(1, end) infinite;
+}
+@keyframes caretBlink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+body.screen-off #eyes,
+body.screen-off #mouth,
+body.screen-off #stats,
+body.screen-off #scanrect { opacity: 0; transition: opacity 0.18s ease; }
+body.screen-off #screen { fill: #030B05; }
+body.screen-off #robot svg { animation: none; }
+body.screen-off #led { fill: #2C5C3C; }

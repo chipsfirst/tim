@@ -370,11 +370,14 @@ function gameClick() {
   return true;
 }
 
-$("floppy").addEventListener("click", (e) => {
-  e.stopPropagation();
-  floppySound();
-  gesture("g-scan", 900);
-});
+const floppyEl = $("floppy");
+if (floppyEl) {
+  floppyEl.addEventListener("click", (e) => {
+    e.stopPropagation();
+    floppySound();
+    gesture("g-scan", 900);
+  });
+}
 
 $("robot").addEventListener("click", (e) => {
   if (gameClick()) e.stopPropagation();
@@ -473,13 +476,16 @@ function bump(key, delta) {
 }
 
 function paintStats() {
-  const set = (id, v) => {
+  const num = (id, v) => {
     const el = document.getElementById(id);
-    if (el) el.setAttribute("width", (34 * Math.max(0, Math.min(100, v)) / 100).toFixed(1));
+    if (el) {
+      el.textContent = String(Math.round(v));
+      el.setAttribute("fill", v < 20 ? "#B4442E" : v < 40 ? "#8A6A1E" : "#4A4436");
+    }
   };
-  set("st-batt", STATS.batt);
-  set("st-hp", STATS.hp);
-  set("st-sleep", STATS.sleep);
+  num("n-batt", STATS.batt);
+  num("n-hp", STATS.hp);
+  num("n-sleep", STATS.sleep);
   document.body.classList.toggle("low-batt", STATS.batt < 20);
   document.body.classList.toggle("low-hp", STATS.hp < 30);
   document.body.classList.toggle("low-sleep", STATS.sleep < 15);
@@ -517,6 +523,37 @@ setInterval(() => {
   paintStats();
   saveStats();
 }, 15000);
+
+function word(v) {
+  if (v > 70) return "отлично";
+  if (v > 40) return "в норме";
+  if (v > 20) return "низко";
+  return "критично";
+}
+
+const sleepBtn = document.getElementById("sleepbtn");
+if (sleepBtn) {
+  sleepBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const off = document.body.classList.toggle("screen-off");
+    if (off) {
+      blip(220, 0.14, "sine", 90, 0.09);
+    } else {
+      chirp("ok");
+      gesture("g-blink", 300);
+    }
+  });
+}
+
+window.info = function () {
+  showAnswer(
+    "Батарея: " + Math.round(STATS.batt) + "% — " + word(STATS.batt) + "\n" +
+    "Здоровье: " + Math.round(STATS.hp) + "% — " + word(STATS.hp) + "\n" +
+    "Сон: " + Math.round(STATS.sleep) + "% — " + word(STATS.sleep),
+    false
+  );
+  gesture("g-blink", 400);
+};
 
 window.charge = function () {
   showAnswer("Подключаюсь к розетке...", false);
