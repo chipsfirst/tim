@@ -403,6 +403,32 @@ class Bot:
             pass
 
 
+def install_autostart():
+    """Ставит LaunchAgent, чтобы Т.И.М. поднимался при входе в систему."""
+    if sys.platform != "darwin" or not getattr(sys, "frozen", False):
+        return
+    try:
+        path = os.path.expanduser("~/Library/LaunchAgents/com.tim.robot.plist")
+        if os.path.exists(path):
+            return
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        exe = os.path.abspath(sys.executable)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+                '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                '<plist version="1.0"><dict>'
+                '<key>Label</key><string>com.tim.robot</string>'
+                '<key>ProgramArguments</key><array><string>%s</string></array>'
+                '<key>RunAtLoad</key><true/>'
+                '</dict></plist>\n' % exe
+            )
+        log("autostart installed")
+    except Exception as exc:
+        log("autostart failed: %r" % exc)
+
+
 def main():
     bot = Bot()
     api = Api(bot)
@@ -428,6 +454,7 @@ def main():
     bot.setup_position()
     window.events.loaded += lambda: bot.on_ready()
     window.events.closed += lambda *a: os._exit(0)
+    install_autostart()
     webview.start(bot.loop, http_server=True, debug=False, user_agent=UA)
 
 
