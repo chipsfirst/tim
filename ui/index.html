@@ -208,14 +208,12 @@
     if (!act) return;
     e.stopPropagation();
     close();
-    if (act === 'feed') feed();
-    else if (act === 'dance') dance();
-    else if (act === 'weather') quickWeather();
-    else if (act === 'time') quickTime();
-    else if (act === 'joke') quickJoke();
-    else if (act === 'tetris') document.getElementById('tbtn').click();
+    var fn = window[act];
+    if (act === 'tetris') document.getElementById('tbtn').click();
     else if (act === 'sound') document.getElementById('sound').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     else if (act === 'quit') document.getElementById('power').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    else if (typeof fn === 'function') fn();
+    else if (window.showAnswer) window.showAnswer('Команда «' + act + '» недоступна.', false);
   });
 })();
 </script>

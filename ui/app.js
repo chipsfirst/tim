@@ -318,6 +318,12 @@ function hungerLoop() {
 modemLoop();
 hungerLoop();
 
+window.feed = feed;
+window.dance = dance;
+window.weather = quickWeather;
+window.time = quickTime;
+window.joke = quickJoke;
+
   }, 210000 + Math.random() * 300000);
 }
 
