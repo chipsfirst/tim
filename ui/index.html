@@ -88,12 +88,15 @@
 
 <script src="app.js"></script>
 <style>
-#tw{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);display:none;z-index:9;background:#071108;border:2px solid #2f4a36;border-radius:8px}
+#tw{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);display:none;z-index:9;background:#071108;border:2px solid #2f4a36;border-radius:8px}
 #tw.on{display:block}
 #tbtn{position:absolute;right:10px;bottom:196px;z-index:8;border:0;border-radius:9px;padding:3px 9px;font:inherit;font-size:11px;background:rgba(252,254,255,.95);color:#3E6DA8;cursor:pointer}
+#tx{position:absolute;left:50%;bottom:64px;transform:translateX(40px);display:none;z-index:10;width:28px;height:28px;border:0;border-radius:50%;background:rgba(252,254,255,.95);color:#B4442E;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(30,45,60,.2)}
+#tw.on ~ #tx{display:block}
 </style>
-<canvas id="tw" width="160" height="320"></canvas>
+<canvas id="tw" width="140" height="280"></canvas>
 <button id="tbtn">Тетрис</button>
+<button id="tx" title="Выйти (Esc)">✕</button>
 <script>
 (function () {
   var c = document.getElementById('tw'), x = c.getContext('2d'), W = 10, H = 20, S = 16;
@@ -154,6 +157,9 @@
   }
 
   document.getElementById('tbtn').onclick = function (e) { e.stopPropagation(); start(); };
+  document.getElementById('tx').onclick = function (e) {
+    e.stopPropagation(); c.classList.remove('on'); stop();
+  };
   document.addEventListener('keydown', function (e) {
     if (!c.classList.contains('on')) return;
     if (e.key === 'ArrowLeft' && !hit(-1, 0)) px--;
