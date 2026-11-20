@@ -276,6 +276,10 @@ function modemSound() {
 function modemLoop() {
   setTimeout(() => {
     if (!muted && !busy) modemSound();
+    modemLoop();
+  }, 210000 + Math.random() * 300000);
+}
+
 function dance() {
   const seq = [520, 660, 780, 660, 880, 780, 990];
   seq.forEach((f, i) => setTimeout(() => blip(f, 0.14, "square", f * 1.2, 0.12), i * 140));
@@ -323,9 +327,6 @@ window.dance = dance;
 window.weather = quickWeather;
 window.time = quickTime;
 window.joke = quickJoke;
-
-  }, 210000 + Math.random() * 300000);
-}
 
 let game = null;
 
