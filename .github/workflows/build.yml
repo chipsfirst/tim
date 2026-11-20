@@ -19,11 +19,11 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install pywebview pyobjc-framework-Quartz pyinstaller
       - run: python -m PyInstaller --name TIM --windowed --noconfirm --clean --add-data "ui:ui" --hidden-import webview.platforms.cocoa --hidden-import objc --hidden-import Quartz --osx-bundle-identifier com.tim.robot main.py
-      - run: ditto -c -k --sequesterRsrc --keepParent "dist/TIM.app" "TIM-mac.zip"
+      - run: hdiutil create -volname "Т.И.М." -srcfolder dist/TIM.app -ov -format UDZO TIM-mac.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: mac
-          path: TIM-mac.zip
+          path: TIM-mac.dmg
 
   win:
     runs-on: windows-latest
@@ -36,11 +36,13 @@ jobs:
       - run: python -m pip install pywebview pyinstaller
       - shell: cmd
         run: python -m PyInstaller --name TIM --windowed --noconfirm --clean --add-data "ui;ui" --hidden-import webview.platforms.winforms --hidden-import webview.platforms.edgechromium main.py
-      - run: Compress-Archive -Path "dist\TIM" -DestinationPath "TIM-win.zip"
+      - run: choco install innosetup -y --no-progress
+      - shell: cmd
+        run: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: TIM-win.zip
+          path: dist/TIM-setup.exe
 
   release:
     needs: [mac, win]
@@ -54,9 +56,9 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Т.И.М. ${{ github.ref_name }}
           body: |
-            CRT-компаньон: трей, ⌥Space, меню, тетрис, кормление, танец, звуки флоппи и модема.
-            macOS: распакуйте TIM-mac.zip (приложение без подписи — правый клик → Открыть).
-            Windows: распакуйте TIM-win.zip и запустите TIM/TIM.exe.
+            macOS: TIM-mac.dmg — откройте образ и перетащите приложение в Applications.
+            Windows: TIM-setup.exe — обычный установщик с ярлыком и удалением.
+            Приложение без подписи: на macOS первый запуск через правый клик → Открыть.
           files: |
-            out/mac/TIM-mac.zip
-            out/windows/TIM-win.zip
+            out/mac/TIM-mac.dmg
+            out/windows/TIM-setup.exe
