@@ -172,5 +172,52 @@
   });
 })();
 </script>
+<style>
+#chips,#tbtn{display:none}
+#mbtn{position:absolute;right:70px;bottom:44px;z-index:11;width:26px;height:20px;border:1.5px solid #8A8272;border-radius:5px;background:#C9C2B1;color:#5B5445;font-size:12px;font-weight:700;line-height:16px;padding:0;cursor:pointer}
+#menu{position:absolute;right:56px;bottom:74px;z-index:12;display:none;flex-direction:column;gap:4px;padding:6px;width:146px;border-radius:14px;background:rgba(252,254,255,.98);box-shadow:0 8px 24px rgba(30,45,60,.25)}
+#menu.on{display:flex}
+#menu button{border:0;border-radius:9px;padding:6px 9px;font:inherit;font-size:12px;text-align:left;background:#EAF2FB;color:#2A4E77;cursor:pointer}
+#menu button:hover{background:#DCEAFB}
+</style>
+<button id="mbtn" title="Меню">≡</button>
+<div id="menu">
+  <button data-act="feed">Покормить</button>
+  <button data-act="dance">Танец</button>
+  <button data-act="weather">Погода</button>
+  <button data-act="time">Время</button>
+  <button data-act="joke">Шутка</button>
+  <button data-act="tetris">Тетрис</button>
+  <button data-act="sound">Звук вкл/выкл</button>
+  <button data-act="quit">Выход</button>
+</div>
+<script>
+(function () {
+  var m = document.getElementById('menu'), b = document.getElementById('mbtn');
+  function close() { m.classList.remove('on'); }
+  b.addEventListener('click', function (e) {
+    e.stopPropagation();
+    m.classList.toggle('on');
+  });
+  document.addEventListener('click', function (e) {
+    if (!m.contains(e.target) && e.target !== b) close();
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  m.addEventListener('click', function (e) {
+    var act = e.target.dataset && e.target.dataset.act;
+    if (!act) return;
+    e.stopPropagation();
+    close();
+    if (act === 'feed') feed();
+    else if (act === 'dance') dance();
+    else if (act === 'weather') quickWeather();
+    else if (act === 'time') quickTime();
+    else if (act === 'joke') quickJoke();
+    else if (act === 'tetris') document.getElementById('tbtn').click();
+    else if (act === 'sound') document.getElementById('sound').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    else if (act === 'quit') document.getElementById('power').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+})();
+</script>
 </body>
 </html>

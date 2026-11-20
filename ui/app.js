@@ -276,7 +276,48 @@ function modemSound() {
 function modemLoop() {
   setTimeout(() => {
     if (!muted && !busy) modemSound();
-    modemLoop();
+function dance() {
+  const seq = [520, 660, 780, 660, 880, 780, 990];
+  seq.forEach((f, i) => setTimeout(() => blip(f, 0.14, "square", f * 1.2, 0.12), i * 140));
+  showAnswer("Танцую!", false);
+  gesture("g-scan", 900);
+  setTimeout(() => gesture("g-happy", 900), 950);
+  setTimeout(() => gesture("g-left", 700), 1900);
+}
+
+let hunger = 0;
+
+function feed() {
+  hunger = 0;
+  showAnswer("Ням! Спасибо, вкусно.", false);
+  gesture("g-happy", 1200);
+  [0, 160, 320].forEach((t) => setTimeout(() => blip(300, 0.07, "square", 180, 0.1), t));
+}
+
+function hungerLoop() {
+  setInterval(() => {
+    hunger += 1;
+    if (hunger === 2 && !busy) {
+      showAnswer("Я проголодался — покормишь?", false);
+      gesture("g-squint", 900);
+      chirp();
+    }
+  }, 600000);
+}
+
+[["Покормить", feed], ["Танец", dance]].forEach(([label, fn]) => {
+  const btn = document.createElement("button");
+  btn.textContent = label;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!busy) fn();
+  });
+  $("chips").appendChild(btn);
+});
+
+modemLoop();
+hungerLoop();
+
   }, 210000 + Math.random() * 300000);
 }
 

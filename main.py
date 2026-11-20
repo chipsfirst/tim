@@ -176,6 +176,109 @@ class Bot:
     def on_ready(self):
         self.ready = True
         self.place()
+        threading.Thread(target=self.start_tray, daemon=True).start()
+
+    def focus_input(self):
+        try:
+            self.win.evaluate_js("document.getElementById('q').focus()")
+        except Exception:
+            pass
+
+    def toggle_sound_js(self):
+        try:
+            self.win.evaluate_js(
+                "document.getElementById('sound')"
+                ".dispatchEvent(new MouseEvent('click',{bubbles:true}))")
+        except Exception:
+            pass
+
+    def start_tray(self):
+        if sys.platform != "darwin":
+            return
+        try:
+            from AppKit import (NSStatusBar, NSMenu, NSMenuItem,
+                                NSVariableStatusItemLength)
+            from Foundation import NSObject
+            from PyObjCTools import AppHelper
+        except Exception as exc:
+            log("tray import failed: %r" % exc)
+            return
+
+        bot = self
+
+        class TrayTarget(NSObject):
+            def show_(self, sender):
+                bot.focus_input()
+
+            def sound_(self, sender):
+                bot.toggle_sound_js()
+
+            def quit_(self, sender):
+                os._exit(0)
+
+        def build():
+            try:
+                item = NSStatusBar.systemStatusBar().statusItemWithLength_(
+                    NSVariableStatusItemLength)
+                item.button().setTitle_("Т")
+                menu = NSMenu.alloc().init()
+                target = TrayTarget.alloc().init()
+                for title, sel in (("Показать", b"show:"), ("Звук", b"sound:"),
+                                   ("Выход", b"quit:")):
+                    mi = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, sel, "")
+                    mi.setTarget_(target)
+                    menu.addItem_(mi)
+                item.setMenu_(menu)
+                self.tray_target = target
+                self.tray_item = item
+                log("native tray ok")
+            except Exception as exc:
+                log("tray build failed: %r" % exc)
+
+        AppHelper.callAfter(build)
+        threading.Thread(target=self.start_hotkey, daemon=True).start()
+
+    def start_hotkey(self):
+        if sys.platform != "darwin":
+            return
+        try:
+            import Quartz
+        except Exception as exc:
+            log("hotkey import failed: %r" % exc)
+            return
+
+        def handler(proxy, etype, event, refcon):
+            try:
+                if etype == Quartz.kCGEventTapDisabledByTimeout:
+                    Quartz.CGEventTapEnable(self.tap, True)
+                    return event
+                flags = Quartz.CGEventGetFlags(event)
+                code = Quartz.CGEventGetIntegerValueField(
+                    event, Quartz.kCGKeyboardEventKeycode)
+                if code == 49 and (flags & Quartz.kCGEventFlagMaskAlternate):
+                    self.focus_input()
+                    return None
+            except Exception as exc:
+                log("hotkey handler: %r" % exc)
+            return event
+
+        try:
+            mask = Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown)
+            tap = Quartz.CGEventTapCreate(
+                Quartz.kCGSessionEventTap, Quartz.kCGHeadInsertEventTap,
+                Quartz.kCGEventTapOptionDefault, mask, handler, None)
+            if not tap:
+                log("hotkey tap failed: нужен доступ «Универсальный доступ»")
+                return
+            self.tap = tap
+            source = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
+            Quartz.CFRunLoopAddSource(
+                Quartz.CFRunLoopGetCurrent(), source, Quartz.kCFRunLoopCommonModes)
+            Quartz.CGEventTapEnable(tap, True)
+            log("hotkey ok (alt+space)")
+            Quartz.CFRunLoopRun()
+        except Exception as exc:
+            log("hotkey failed: %r" % exc)
 
     def quit(self):
         log("quit requested")
