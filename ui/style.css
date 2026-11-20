@@ -201,3 +201,11 @@ body.muted #sound { opacity: 0.7; }
   border-radius: 2px;
 }
 #bubble.thinking { color: #6B7A8A; font-style: italic; }
+
+/* ---------- состояния показателей ---------- */
+
+body.low-batt #eyes { filter: drop-shadow(0 0 3px rgba(90, 255, 150, 0.25)); }
+body.low-batt #robot svg { animation: crtFlicker 3.2s infinite; }
+body.low-hp #led { fill: #C2503C; }
+body.low-hp #mouth { opacity: 0.5; }
+body.low-sleep #mouth { opacity: 0.4; }

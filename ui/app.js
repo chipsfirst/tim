@@ -305,6 +305,7 @@ let hunger = 0;
 
 function feed() {
   hunger = 0;
+  if (typeof bump === "function") { bump("hp", 12); bump("batt", 3); }
   showAnswer("Ням! Спасибо, вкусно.", false);
   gesture("g-happy", 1200);
   [0, 160, 320].forEach((t) => setTimeout(() => blip(300, 0.07, "square", 180, 0.1), t));
@@ -450,9 +451,87 @@ window.TIM = {
   state(s) {
     if (!s) return;
     if ("hover" in s) onHover(!!s.hover);
-    if ("sleep" in s) document.body.classList.toggle("g-sleep", !!s.sleep);
+    if ("sleep" in s) {
+      window.TIM.asleep = !!s.sleep;
+      document.body.classList.toggle("g-sleep", !!s.sleep);
+    }
   },
 };
+
+/* ---------------------------------------------- показатели (RPG) */
+
+const STATS = { batt: 100, hp: 100, sleep: 100 };
+try {
+  const saved = JSON.parse(localStorage.getItem("tim-stats") || "null");
+  if (saved) for (const k in STATS) if (typeof saved[k] === "number") STATS[k] = saved[k];
+} catch (e) {}
+
+const warned = { batt: false, hp: false, sleep: false };
+
+function bump(key, delta) {
+  STATS[key] = Math.max(0, Math.min(100, STATS[key] + delta));
+}
+
+function paintStats() {
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute("width", (34 * Math.max(0, Math.min(100, v)) / 100).toFixed(1));
+  };
+  set("st-batt", STATS.batt);
+  set("st-hp", STATS.hp);
+  set("st-sleep", STATS.sleep);
+  document.body.classList.toggle("low-batt", STATS.batt < 20);
+  document.body.classList.toggle("low-hp", STATS.hp < 30);
+  document.body.classList.toggle("low-sleep", STATS.sleep < 15);
+}
+
+function saveStats() {
+  try { localStorage.setItem("tim-stats", JSON.stringify(STATS)); } catch (e) {}
+}
+
+function statReport() {
+  if (STATS.batt < 20 && !warned.batt) {
+    warned.batt = true;
+    showAnswer("Батарея садится. Дай заряд.", false);
+    gesture("g-squint", 900); chirp("bad");
+  } else if (STATS.batt > 40) warned.batt = false;
+
+  if (STATS.hp < 30 && !warned.hp) {
+    warned.hp = true;
+    showAnswer("Мне нездоровится. Покормишь?", false);
+    gesture("g-squint", 1200); chirp("bad");
+  } else if (STATS.hp > 55) warned.hp = false;
+
+  if (STATS.sleep < 15 && !warned.sleep) {
+    warned.sleep = true;
+    showAnswer("Глаза слипаются... дай поспать.", false);
+    gesture("g-sleep", 1500); chirp("ok");
+  } else if (STATS.sleep > 45) warned.sleep = false;
+}
+
+setInterval(() => {
+  bump("batt", -0.12);
+  bump("sleep", (window.TIM && window.TIM.asleep) ? 2.2 : -0.2);
+  bump("hp", (STATS.batt < 20 || STATS.sleep < 15) ? -0.12 : 0.05);
+  statReport();
+  paintStats();
+  saveStats();
+}, 15000);
+
+window.charge = function () {
+  showAnswer("Подключаюсь к розетке...", false);
+  gesture("g-think", 1200);
+  chirp("ok");
+  setTimeout(() => {
+    bump("batt", 100);
+    bump("hp", 8);
+    paintStats(); saveStats();
+    showAnswer("Заряжен на сто процентов.", false);
+    gesture("g-happy", 1200);
+  }, 2600);
+};
+
+paintStats();
 
 window.addEventListener("pywebviewready", () => {
   const a = API();
