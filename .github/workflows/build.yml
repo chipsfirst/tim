@@ -1,0 +1,37 @@
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pywebview pyobjc-framework-Quartz pyinstaller
+      - run: |
+          python -m PyInstaller --name "ТИМ" --windowed --noconfirm --clean \
+            --add-data "ui:ui" --hidden-import webview.platforms.cocoa \
+            --hidden-import objc --hidden-import Quartz \
+            --osx-bundle-identifier com.tim.robot main.py
+      - run: ditto -c -k --sequesterRsrc --keepParent "dist/ТИМ.app" "ТИМ-mac.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: mac, path: "ТИМ-mac.zip" }
+
+  win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pywebview pyinstaller
+      - run: |
+          python -m PyInstaller --name "ТИМ" --windowed --noconfirm --clean ^
+            --add-data "ui;ui" --hidden-import webview.platforms.edgechromium main.py
+      - run: Compress-Archive -Path "dist/ТИМ" -DestinationPath "ТИМ-win.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: "ТИМ-win.zip" }
