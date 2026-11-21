@@ -301,6 +301,11 @@ class Bot:
         self.ready = True
         self.place()
         plat.start_drag(self)
+        if sys.platform == "win32":
+            import win_backend
+
+            threading.Thread(target=lambda: (time.sleep(2.5), win_backend.activate(self)),
+                             daemon=True).start()
         threading.Thread(target=self.audit_menu, daemon=True).start()
         threading.Thread(target=self.start_tray, daemon=True).start()
 
@@ -590,14 +595,13 @@ def _run():
         resizable=False,
         easy_drag=False,
     )
+    kw["background_color"] = "#000000"
     if sys.platform == "darwin":
         kw["shadow"] = False
-        kw["background_color"] = "#000000"
     try:
         window = webview.create_window(transparent=True, **kw)
     except (TypeError, ValueError):
-        kw["background_color"] = "#000000"
-        log("transparent unsupported, dark background", "warn")
+        log("transparent unsupported, retry opaque")
         window = webview.create_window(transparent=False, **kw)
     bot.win = window
     bot.alice = webview.create_window(

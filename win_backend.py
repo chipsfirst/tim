@@ -123,6 +123,13 @@ class Drag:
         px = point[0] - bot.x
         py = point[1] - bot.y
         regions = bot.regions
+        if not regions.get("robot"):
+            # Резерв: пока страница не прислала зоны, считаем роботом
+            # нижнюю половину окна — иначе перетаскивание мертво.
+            w = getattr(bot, "win_w", 340)
+            h = getattr(bot, "win_h", 500)
+            regions = {"robot": {"x": (w - 250) / 2, "y": h - 286,
+                                 "w": 250, "h": 286}, "panel": None, "extra": []}
         over = (inside(regions.get("robot"), px, py)
                 or inside(regions.get("panel"), px, py)
                 or any(inside(r, px, py) for r in regions.get("extra") or []))
@@ -268,4 +275,20 @@ def set_autostart(enabled):
         winreg.CloseKey(key)
         return True
     except Exception:
+        return False
+
+
+def activate(bot):
+    """Поднимает окно поверх и отдаёт ему фокус — иначе клики уходят мимо."""
+    handle = hwnd_of(bot.win)
+    if not handle:
+        return False
+    try:
+        user32.ShowWindow(handle, 5)
+        user32.SetWindowPos(wintypes.HWND(handle), wintypes.HWND(HWND_TOPMOST),
+                            0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE)
+        user32.SetForegroundWindow(handle)
+        return True
+    except Exception as exc:
+        bot.log("activate: %r" % exc)
         return False
