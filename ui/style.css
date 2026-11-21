@@ -259,12 +259,41 @@ body.face-tongue #face-tongue { display: block; }
 /* ---------- расширенный режим ---------- */
 
 body.wide #robot { transform: scale(1.25); transform-origin: bottom center; }
-body.wide #bubble { width: 380px; max-width: 380px; max-height: 320px; display: block; }
-body.wide #panel { width: 360px; display: flex; }
+body.wide #bubble {
+  width: 420px; max-width: 420px; max-height: 420px; min-height: 160px;
+  bottom: 92px; display: block; font-size: 15px;
+}
+body.wide #bubble::after { display: none; }
+body.wide #panel { width: 420px; display: flex; bottom: 18px; }
 body.wide #menu { width: 210px; height: 150px; }
 
-body.wide #robot { transform: scale(1); }
+body.wide #robot { display: none; }
+body.wide #collapse { display: block; }
+#collapse { display: none; }
+body.wide #bubble { max-height: 460px; }
+body.wide { background: transparent; }
 
 #sound-off { opacity: 0; }
 body.muted #sound-off { opacity: 1; }
 body.muted #sound rect { fill: #E9D6D0; }
+
+body.night #robot { filter: brightness(0.72) saturate(0.9); }
+body.night #bubble, body.night #panel { opacity: 0.92; }
+
+
+/* ========== меню на экране ========== */
+#chips{display:none}
+#menu{position:absolute;left:calc(50% - 91px);bottom:52px;z-index:12;display:none;flex-direction:column;gap:1px;padding:2px 2px;width:182px;height:123px;overflow-y:auto;border:2px solid #CFC8B7;outline:1px solid #6E675A;border-radius:5px;background:repeating-linear-gradient(#071108 0 2px,#0A1A0F 2px 3px);box-shadow:inset 0 0 16px rgba(60,255,134,.16),0 6px 18px rgba(30,45,60,.28)}
+#menu.on{display:flex}
+#menu button{border:0;border-radius:2px;padding:1px 4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;line-height:1.35;text-align:left;background:transparent;color:#66FF9E;cursor:pointer;white-space:nowrap;text-shadow:0 0 4px rgba(102,255,158,.5)}
+#menu button:hover{background:#123020;color:#B9FFD4}
+#menu::-webkit-scrollbar{width:4px}
+#menu::-webkit-scrollbar-thumb{background:#2A5A3A;border-radius:2px}
+
+
+/* ========== игры ========== */
+#tw{position:absolute;left:calc(50% - 97px);bottom:43px;width:193px;height:134px;display:none;z-index:9;background:#071108;border:0;border-radius:6px}
+#tw.on{display:block}
+#tbtn{display:none}
+#tx{position:absolute;left:50%;bottom:64px;transform:translateX(40px);display:none;z-index:10;width:28px;height:28px;border:0;border-radius:50%;background:rgba(252,254,255,.95);color:#B4442E;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(30,45,60,.2)}
+#tw.on ~ #tx{display:block}

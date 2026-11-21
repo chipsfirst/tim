@@ -128,7 +128,8 @@
   }
 
   document.addEventListener("click", function (e) {
-    var key = e.target.closest && e.target.closest("#widebtn");
+    if (!e.target.closest) return;
+    var key = e.target.closest("#widebtn") || e.target.closest("#collapse");
     if (!key) return;
     e.stopPropagation();
     var api = window.pywebview && window.pywebview.api;

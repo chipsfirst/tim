@@ -1,6 +1,6 @@
 // Показатели RPG: батарея, здоровье, сон.
 
-const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0, unlocked: 1, days: {} };
+const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0, unlocked: 1, days: {}, log: [] };
 try {
   const saved = JSON.parse(localStorage.getItem("tim-stats") || "null");
   if (saved) for (const k in STATS) if (typeof saved[k] === "number") STATS[k] = saved[k];
@@ -74,6 +74,7 @@ function loadFromDisk() {
     Object.keys(STATS).forEach((k) => {
       if (typeof data[k] === "number") STATS[k] = data[k];
       if (k === "days" && data[k] && typeof data[k] === "object") STATS.days = data[k];
+      if (k === "log" && Array.isArray(data[k])) STATS.log = data[k];
     });
     paintStats();
   }).catch(() => {});
@@ -85,6 +86,7 @@ function saveToDisk() {
   api.save_stats({
     batt: STATS.batt, hp: STATS.hp, sleep: STATS.sleep,
     xp: STATS.xp, unlocked: STATS.unlocked, days: STATS.days,
+    log: (STATS.log || []).slice(-20),
   }).catch(() => {});
 }
 
@@ -153,7 +155,8 @@ window.info = function () {
     "Здоровье: " + Math.round(STATS.hp) + "% — " + word(STATS.hp) + "\n" +
     "Сон: " + Math.round(STATS.sleep) + "% — " + word(STATS.sleep) + "\n" +
     "Сегодня: покормлен " + dayNote().feed + " раз(а)" +
-    "\n" + "Уровень " + level() + " · опыт " + (STATS.xp % 100) + "/100 (ещё " + xpLeft() + ")",
+    "\n" + "Уровень " + level() + " · опыт " + (STATS.xp % 100) + "/100 (ещё " + xpLeft() + ")" +
+    lastTalks(),
     false
   );
   gesture("g-blink", 400);
@@ -173,3 +176,20 @@ window.charge = function () {
 };
 
 paintStats();
+
+window.rememberExchange = function (q, a) {
+  STATS.log = STATS.log || [];
+  STATS.log.push({ t: Date.now(), q: String(q || "").slice(0, 200),
+                   a: String(a || "").slice(0, 300) });
+  STATS.log = STATS.log.slice(-20);
+};
+
+function lastTalks() {
+  const log = (STATS.log || []).slice(-3).reverse();
+  if (!log.length) return "";
+  return "\n\nПоследние вопросы:\n" + log.map(function (e) {
+    const q = (e.q || "").slice(0, 40);
+    const a = (e.a || "").slice(0, 40);
+    return "• " + q + "\n  " + a;
+  }).join("\n");
+}

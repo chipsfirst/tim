@@ -86,6 +86,14 @@ class MenuTest(unittest.TestCase):
             self.assertIn(required, ids)
         self.assertEqual(block.count("run:") + block.count("items:"), block.count('id: "'))
 
+    def test_nested_groups(self):
+        app = read("ui/app.js")
+        self.assertIn('label: "Игры ▸"', app)
+        self.assertIn('label: "Сервис ▸"', app)
+        self.assertIn('label: "Настройки ▸"', app)
+        block = app[app.index('label: "Сервис ▸"'):]
+        self.assertIn('id: "reset"', block)
+
     def test_menu_script_exists(self):
         self.assertTrue(os.path.exists(os.path.join(ROOT, "ui/js/menu.js")))
         self.assertNotIn("<script>", read("ui/index.html"))

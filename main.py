@@ -134,13 +134,23 @@ def state_path():
     return os.path.join(base, "state.json")
 
 
+STATE_VERSION = 1
+
+
 def read_state():
     try:
         with open(state_path(), encoding="utf-8") as fh:
             data = json.load(fh)
-        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+    if not isinstance(data, dict):
+        return {}
+    version = data.pop("v", 0)
+    if version == STATE_VERSION:
+        return data
+    # Миграция: старые файлы без версии — просто набор шкал.
+    log("state migrated from v%s" % version, "warn")
+    return data
 
 
 def write_state(data):
@@ -148,8 +158,10 @@ def write_state(data):
         path = state_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = path + ".tmp"
+        payload = dict(data or {})
+        payload["v"] = STATE_VERSION
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False)
+            json.dump(payload, fh, ensure_ascii=False)
         os.replace(tmp, path)
         return True
     except Exception as exc:
@@ -577,14 +589,15 @@ def _run():
         on_top=True,
         resizable=False,
         easy_drag=False,
-        background_color="#000000",
     )
     if sys.platform == "darwin":
         kw["shadow"] = False
+        kw["background_color"] = "#000000"
     try:
         window = webview.create_window(transparent=True, **kw)
     except (TypeError, ValueError):
-        log("transparent unsupported, retry opaque")
+        kw["background_color"] = "#000000"
+        log("transparent unsupported, dark background", "warn")
         window = webview.create_window(transparent=False, **kw)
     bot.win = window
     bot.alice = webview.create_window(

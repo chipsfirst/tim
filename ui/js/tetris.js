@@ -4,7 +4,8 @@
   var c = document.getElementById("tw");
   if (!c) return;
   var x = c.getContext("2d");
-  var W = 10, H = 20, S = 6;
+  var W = 10, H = 20, S = c.height / 20;
+  var OX = (c.width - W * S) / 2, OY = (c.height - H * S) / 2;
   var P = [[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],
            [[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
   var g, cur, px, py, score, over, timer;
@@ -54,15 +55,16 @@
     x.fillStyle = "#071108"; x.fillRect(0, 0, c.width, c.height);
     x.fillStyle = "#3CFF86";
     g.forEach(function (row, y) {
-      row.forEach(function (v, xx) { if (v) x.fillRect(xx * S, y * S, S - 1, S - 1); });
+      row.forEach(function (v, xx) { if (v) x.fillRect(OX + xx * S, OY + y * S, S - 1, S - 1); });
     });
     if (!over) cur.forEach(function (row, y) {
       row.forEach(function (v, xx) {
-        if (v && py + y >= 0) x.fillRect((px + xx) * S, (py + y) * S, S - 1, S - 1);
+        if (v && py + y >= 0) x.fillRect(OX + (px + xx) * S, OY + (py + y) * S, S - 1, S - 1);
       });
     });
     x.fillStyle = "#66FF9E"; x.font = "10px monospace";
     x.fillText(over ? "GAME OVER" : "SCORE " + score, 4, 12);
+    x.strokeStyle = "#2A5A3A"; x.strokeRect(OX - 1, OY - 1, W * S + 2, H * S + 2);
   }
 
   function step() { if (over) return; if (hit(0, 1)) lock(); else py++; draw(); }

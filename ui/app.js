@@ -20,8 +20,6 @@ let hover = false;
 let panelOpen = false;
 let busy = false;
 let hideTimer = null;
-let history = [];
-let histPos = -1;
 
 
 function setPanel(open) {
@@ -58,18 +56,13 @@ function showAnswer(text, thinking) {
 
 /* ---------------------------------------------- реплики в простое */
 
-const IDLE = [
-  "Как дела?",
-  "Я на месте — спроси что-нибудь.",
-  "Может, узнаем погоду?",
-  "Разомнись немного, я подожду.",
-];
 
 function quoteTick() {
   setTimeout(function () {
     if (!busy && !document.body.classList.contains("g-sleep")
         && !document.body.classList.contains("screen-off")) {
-      showAnswer(QUOTES[Math.floor(Math.random() * QUOTES.length)], false);
+      const pool = Math.random() < 0.4 ? MOTIVATE : QUOTES;
+      showAnswer(pool[Math.floor(Math.random() * pool.length)], false);
       gesture("g-blink", 400);
     }
     quoteTick();
@@ -104,42 +97,8 @@ function idleTalk() {
 
 /* ---------------------------------------------- быстрые ответы */
 
-const QUOTES = [
-  "May the Force be with you.",
-  "I'll be back.",
-  "Houston, we have a problem.",
-  "To infinity and beyond!",
-  "Elementary, my dear Watson.",
-  "Winter is coming.",
-  "I am your father.",
-  "Roads? Where we're going we don't need roads.",
-  "There's no place like home.",
-  "I'll have what she's having.",
-  "Шеф, всё пропало.",
-  "Спокойно, всё по плану.",
-  "Я не волшебник, я только учусь.",
-  "Всё, что ни делается — всё к лучшему.",
-  "За работу, товарищи!",
-  "Спокойствие, только спокойствие.",
-  "Это не баг, это фича.",
-  "Терпение и труд всё перетрут.",
-];
 
-const JOKES = [
-  "Программист ставит на ночь два стакана: один с водой — если захочет пить, второй пустой — если не захочет.",
-  "— Как называется страх перед программированием? — Кодофобия. — А перед роботами? — Кодофобия тоже, только громче.",
-  "Почему роботы не болеют? Потому что у них всё железное, кроме нервов.",
-  "Я не зависаю. Я просто думаю очень выразительно.",
-  "Спрашиваю у тостера, как дела. Он говорит: всё путём, только подгорает.",
-  "Оптимист видит стакан наполовину полным. Программист — что стакан не инициализирован.",
-  "Мой любимый вид спорта — перетаскивание файлов. Иногда с замиранием сердца.",
-  "Дед Мороз спрашивает робота: что тебе подарить? — Новый блок питания. Старый стал философом.",
-  "Робот приходит к врачу: доктор, у меня всё болит. — Где именно? — Везде, кроме инструкции.",
-  "Почему программисты путают Хэллоуин и Рождество? Потому что oct 31 == dec 25.",
-  "У меня нет нервов — только провода. Зато стальные.",
-  "Спрашиваю у Алисы совета. Она говорит: «Спроси Т.И.М.». Прогресс!",
-  "Мой любимый цикл — while(true) { пить_кофе(); }",
-];
+
 
 function weatherDesc(code) {
   if (code === 0) return "ясно";
@@ -196,36 +155,6 @@ function runQuick(kind) {
 
 /* ---------------------------------------------- запрос */
 
-async function ask() {
-  let text = $("q").value.trim();
-  if (/^(погода|weather)\s*$/i.test(text)) { text = ""; $("q").value = ""; runQuick("weather"); return; }
-  if (!text || busy) return;
-  history.push(text);
-  histPos = history.length;
-  busy = true;
-  $("send").disabled = true;
-  gesture("g-think", 60000);
-  chirp("think");
-  showAnswer("…", true);
-
-  const a = API();
-  let answer = "Нет связи с приложением.";
-  if (a && a.ask) {
-    try {
-      answer = await a.ask(text);
-    } catch (err) {
-      answer = "Не получилось спросить Алису.";
-    }
-  }
-
-  document.body.classList.remove("g-think");
-  showAnswer(answer || "Алиса промолчала.", false);
-  gesture("g-happy", 900);
-  chirp("ok");
-  $("q").value = "";
-  $("send").disabled = false;
-  busy = false;
-}
 
 /* ---------------------------------------------- зоны кликов */
 
@@ -302,11 +231,8 @@ function hungerLoop() {
 });
 
 
-window.feed = feed;
 window.dance = dance;
-window.weather = quickWeather;
 window.time = quickTime;
-window.joke = quickJoke;
 
 let game = null;
 
@@ -447,12 +373,13 @@ if (window.TIM && TIM.menu) {
       { id: "charge", label: "Заряд", run: function () { window.charge(); } },
       { id: "time", label: "Время", run: function () { quickTime(); } },
       { id: "info", label: "Состояние", run: function () { window.info(); } },
-      { id: "settings", label: "Настройки", run: function () { window.settingsCard(); } },
-      { id: "reminder", label: "Напоминания", run: function () { window.toggleReminder(); } },
-      { id: "autostart", label: "Автозапуск", run: function () { window.toggleAutostart(); } },
-      { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
-      { id: "update", label: "Обновления", run: function () { window.checkUpdate(); } },
-      { id: "reset", label: "Начать сначала", run: function () { window.resetProgress(); } },
+      { id: "setup", label: "Настройки ▸", items: [
+        { id: "reminder", label: "Напоминания", run: function () { window.toggleReminder(); } },
+        { id: "autostart", label: "Автозапуск", run: function () { window.toggleAutostart(); } },
+        { id: "update", label: "Обновления", run: function () { window.checkUpdate(); } },
+        { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
+        { id: "reset", label: "Начать сначала", run: function () { window.resetProgress(); } },
+      ] },
     ] },
     { id: "games", label: "Игры ▸", items: [
       { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
@@ -562,7 +489,15 @@ reportRegions();
 setTimeout(reportRegions, 800);
 setTimeout(reportRegions, 2500);
 
+function nightTick() {
+  const h = new Date().getHours();
+  const night = h >= 23 || h < 7;
+  document.body.classList.toggle("night", night);
+  setTimeout(nightTick, 60000);
+}
+
 function boot() {
+  nightTick();
   quoteTick();
   tuneTick();
   modemLoop();

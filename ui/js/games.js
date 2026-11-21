@@ -38,17 +38,18 @@
     }
     function draw() {
       clear();
-      var s = W / 3;
+      var s = Math.min(W, H) / 3;
+      var ox = (W - s * 3) / 2, oy = (H - s * 3) / 2;
       x.strokeStyle = "#2A5A3A"; x.lineWidth = 2;
       for (var i = 1; i < 3; i++) {
-        x.beginPath(); x.moveTo(i * s, 10); x.lineTo(i * s, 3 * s); x.stroke();
-        x.beginPath(); x.moveTo(10, i * s); x.lineTo(W - 10, i * s); x.stroke();
+        x.beginPath(); x.moveTo(ox + i * s, oy); x.lineTo(ox + i * s, oy + 3 * s); x.stroke();
+        x.beginPath(); x.moveTo(ox, oy + i * s); x.lineTo(ox + 3 * s, oy + i * s); x.stroke();
       }
       x.font = "bold 30px monospace"; x.textAlign = "center";
       cells.forEach(function (v, i) {
         if (!v) return;
         x.fillStyle = v === "X" ? "#66FF9E" : "#FF8A7A";
-        x.fillText(v, (i % 3) * s + s / 2, Math.floor(i / 3) * s + s / 2 + 11);
+        x.fillText(v, ox + (i % 3) * s + s / 2, oy + Math.floor(i / 3) * s + s / 2 + 10);
       });
       var r = lines(cells);
       if (r) {
@@ -61,7 +62,11 @@
       var rect = c.getBoundingClientRect();
       var px = (e.clientX - rect.left) * (W / rect.width);
       var py = (e.clientY - rect.top) * (H / rect.height);
-      var i = Math.floor(py / (W / 3)) * 3 + Math.floor(px / (W / 3));
+      var s = Math.min(W, H) / 3;
+      var ox = (W - s * 3) / 2, oy = (H - s * 3) / 2;
+      var col = Math.floor((px - ox) / s), row = Math.floor((py - oy) / s);
+      if (col < 0 || col > 2 || row < 0 || row > 2) return;
+      var i = row * 3 + col;
       if (cells[i]) return;
       cells[i] = "X";
       var r = lines(cells);
@@ -101,6 +106,8 @@
       x.fillRect(bx, by, 4, 4);
       x.font = "10px monospace"; x.fillStyle = "#3CFF86";
       x.fillText(String(score), 6, 12);
+      x.fillStyle = "#2A5A3A";
+      x.fillText("Esc — выйти", W - 74, 12);
     }, 16);
   }
 
@@ -110,6 +117,12 @@
     var gy = H - 24, pyy = gy, vy = 0, obs = [], t = 0, score = 0, dead = false;
     onKey = function (e) {
       if (e.key === "Escape") { stop(); return; }
+      if (dead && (e.key === "r" || e.key === "R" || e.key === "Enter")) {
+        document.removeEventListener("keydown", onKey);
+        clearInterval(timer);
+        runner();
+        return;
+      }
       if ((e.key === " " || e.key === "ArrowUp") && pyy >= gy) vy = -9;
       e.preventDefault();
     };
@@ -117,11 +130,16 @@
     timer = setInterval(function () {
       if (dead) return;
       t++; vy += 0.6; pyy = Math.min(gy, pyy + vy);
-      if (t % 70 === 0) obs.push({ x: W, h: 10 + Math.random() * 12 });
+      if (t % 70 === 0 || (t > 200 && t % 37 === 0)) {
+        var kind = Math.random();
+        if (kind < 0.4) obs.push({ x: W, h: 8 + Math.random() * 6, y: gy });          // низкий пень
+        else if (kind < 0.75) obs.push({ x: W, h: 26 + Math.random() * 10, y: gy });  // высокая стена
+        else obs.push({ x: W, h: 10, y: gy - 42 });                                   // летящий блок
+      }
       obs.forEach(function (o) { o.x -= 4; });
       obs = obs.filter(function (o) { return o.x > -10; });
       var hit = obs.some(function (o) {
-        return o.x < 20 && o.x + 8 > 8 && pyy + 16 > gy - o.h;
+        return o.x < 20 && o.x + 8 > 8 && pyy + 16 > o.y - o.h && pyy < o.y;
       });
       if (hit) dead = true;
       score++;
@@ -136,11 +154,19 @@
       x.fillRect(9, pyy + 13, 3, 3);
       x.fillRect(16, pyy + 13, 3, 3);
       x.fillStyle = "#FF8A7A";
-      obs.forEach(function (o) { x.fillRect(o.x, gy - o.h, 8, o.h); });
-      x.fillStyle = "#2A5A3A";
-      x.fillRect(0, gy + 16, W, 2);
+      obs.forEach(function (o) {
+        x.fillStyle = o.y < gy ? "#FFD166" : "#FF8A7A";
+        x.fillRect(o.x, o.y - o.h, 8, o.h);
+      });
+      x.fillStyle = "#1E4429";
+      x.fillRect(0, gy + 16, W, H - gy - 16);
+      x.fillStyle = "#3CFF86";
+      x.fillRect(0, gy + 15, W, 2);
+      for (var gx = (t * 4) % 24; gx < W; gx += 24) {
+        x.fillRect(gx, gy + 20, 8, 2);
+      }
       x.fillStyle = "#FFFFFF"; x.font = "10px monospace";
-      x.fillText(dead ? "GAME OVER" : "SCORE " + score, 6, 12);
+      x.fillText(dead ? "GAME OVER — R: заново, Esc: выйти" : "SCORE " + score, 6, 12);
     }, 33);
   }
 
