@@ -97,8 +97,12 @@ var TUNES = [
 ];
 
 function playTune() {
+  // Мягкая версия: синус, длинные ноты, тихая громкость и плавное затухание.
   var tune = TUNES[Math.floor(Math.random() * TUNES.length)];
   tune.forEach(function (f, i) {
-    setTimeout(function () { blip(f, 0.12, "square", f, 0.1); }, i * 160);
+    setTimeout(function () {
+      blip(f, 0.34, "sine", f * 1.002, 0.045);
+      setTimeout(function () { blip(f * 0.5, 0.3, "triangle", f * 0.5, 0.02); }, 40);
+    }, i * 320);
   });
 }

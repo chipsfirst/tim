@@ -13,8 +13,10 @@
     clearInterval(timer); timer = null; mode = null;
     if (onKey) { document.removeEventListener("keydown", onKey); onKey = null; }
     c.classList.remove("on");
+    var b = document.getElementById("tx"); if (b) b.style.display = "none";
   }
-  function open() { c.classList.add("on"); }
+  function open() { if (window.TIM && TIM.tetris) TIM.tetris.close(); c.classList.add("on");
+    var b = document.getElementById("tx"); if (b) b.style.display = "block"; }
 
   /* ------------------------------ крестики-нолики */
   function tic() {

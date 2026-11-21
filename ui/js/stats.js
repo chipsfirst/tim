@@ -193,3 +193,14 @@ function lastTalks() {
     return "• " + q + "\n  " + a;
   }).join("\n");
 }
+
+window.paintBar = function () {
+  const el = document.getElementById("bar-text");
+  if (!el) return;
+  el.textContent = "Т.И.М. · ур." + level() +
+    " · ⚡" + Math.round(STATS.batt) +
+    " ♥" + Math.round(STATS.hp) +
+    " ☾" + Math.round(STATS.sleep);
+};
+setInterval(window.paintBar, 2000);
+window.paintBar();

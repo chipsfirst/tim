@@ -71,7 +71,7 @@ class ConfigTest(unittest.TestCase):
         self.assertGreater(cfg["stats"]["tick_ms"], 1000)
 
     def test_python_uses_config(self):
-        self.assertEqual(main.WIN_W, 340)
+        self.assertEqual(main.WIN_W, 300)
         self.assertEqual(main.LOOP_CFG.get("tick_ms"), 100)
 
 

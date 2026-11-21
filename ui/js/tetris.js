@@ -68,13 +68,16 @@
   }
 
   function step() { if (over) return; if (hit(0, 1)) lock(); else py++; draw(); }
-  function stop() { clearInterval(timer); }
+  function stop() { clearInterval(timer);
+    var b = document.getElementById("tx"); if (b) b.style.display = "none"; }
 
   function start() {
+    if (window.TIM && TIM.games && TIM.games.close) TIM.games.close();
     g = Array.from({ length: H }, function () { return Array(W).fill(0); });
     score = 0; over = false;
     spawn();
     c.classList.add("on");
+    var b = document.getElementById("tx"); if (b) b.style.display = "block";
     stop();
     timer = setInterval(step, 450);
     draw();

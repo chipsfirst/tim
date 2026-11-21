@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Вариант 4 — терминал с кнопками в корпусе и мини-дискетой</title>
+<style>
+ html,body{margin:0;height:340px;background:#CFC8B7;font-family:ui-monospace,Menlo,monospace}
+ .stage{width:300px;height:340px;margin:0 auto;position:relative}
+ /* мини-дискета */
+ .floppy{position:absolute;left:50%;top:120px;transform:translateX(-50%);width:96px;height:96px;
+   background:linear-gradient(160deg,#F0EADB,#B0A691);border:3px solid #6E675A;border-radius:10px;
+   box-shadow:0 8px 18px rgba(30,20,10,.25);cursor:pointer;display:flex;justify-content:center;align-items:flex-start}
+ .floppy:after{content:"";position:absolute;right:10px;bottom:10px;width:16px;height:16px;border-radius:50%;background:#4BFF8D}
+ .floppy i{display:block;width:52px;height:34px;margin-top:14px;background:#2E2A22;border-radius:3px;
+   box-shadow:inset 0 0 0 4px #4A4438}
+ .floppy b{position:absolute;bottom:18px;font-size:10px;color:#4E4838;font-weight:400}
+ .floppy span{position:absolute;top:52px;left:22px;width:36px;height:4px;background:#4A4438;border-radius:2px}
+ /* терминал */
+ .term{display:none;width:300px;height:340px;padding:8px;box-sizing:border-box}
+ .on .floppy{display:none}
+ .on .term{display:block}
+ .case{background:linear-gradient(160deg,#F0EADB,#B0A691);border:3px solid #6E675A;border-radius:12px;
+   box-shadow:0 8px 20px rgba(30,20,10,.25);padding:6px;display:flex;flex-direction:column;height:100%;box-sizing:border-box}
+ .scr{flex:1;background:#071108;border-radius:6px;display:flex;flex-direction:column;overflow:hidden;
+   box-shadow:inset 0 0 20px rgba(60,255,134,.18)}
+ .t{font-size:9px;color:#5FBE86;padding:3px 6px;border-bottom:1px solid #143b22;letter-spacing:.04em}
+ .log{flex:1;overflow:auto;font-size:10px;line-height:1.35;color:#9BFFC4;padding:4px 6px}
+ .log b{color:#66FF9E;font-weight:400}
+ .inp{display:flex;border-top:1px solid #143b22}
+ .inp span{color:#66FF9E;padding:4px 6px;font-size:11px}
+ .inp input{flex:1;background:transparent;border:0;outline:none;color:#CFFFE2;font:10px ui-monospace,monospace}
+ .keys{display:flex;gap:5px;justify-content:center;padding:6px 0 2px}
+ .keys span{width:30px;height:18px;font-size:11px;display:flex;align-items:center;justify-content:center;
+   background:#E8E1D0;border:1.2px solid #6E675A;border-radius:4px;color:#4E4838;cursor:pointer}
+</style></head><body>
+<div class="stage" id="stage">
+  <div class="floppy" onclick="document.getElementById('stage').classList.add('on')">
+    <i></i><span></span><b>Т.И.М.</b>
+  </div>
+  <div class="term">
+    <div class="case">
+      <div class="scr">
+        <div class="t">Т.И.М. · ур.3 · ⚡100 ♥100 ☾100</div>
+        <div class="log">
+          <div><b>&gt; погода</b></div><div>+3°, облачно, ветер 4 м/с</div>
+          <div><b>&gt; спасибо</b></div><div>всегда пожалуйста</div>
+        </div>
+        <div class="inp"><span>&gt;</span><input placeholder="вопрос…"></div>
+      </div>
+      <div class="keys"><span>⏻</span><span>≡</span><span>☾</span><span>🔊</span><span>⤢</span><span onclick="document.getElementById('stage').classList.remove('on')">⤡</span></div>
+    </div>
+  </div>
+</div></body></html>

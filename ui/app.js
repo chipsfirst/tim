@@ -168,7 +168,8 @@ function rectOf(el, shown) {
 function reportRegions() {
   const a = API();
   if (!a || !a.set_regions) return;
-  const r = $("robot").getBoundingClientRect();
+  const shell = $("robot").offsetParent ? $("robot").getBoundingClientRect() : document.querySelector(".device").getBoundingClientRect();
+  const r = shell;
   const p = $("panel").getBoundingClientRect();
   const extra = [
     rectOf($("menu"), "on"),
@@ -369,6 +370,12 @@ if (window.TIM && TIM.menu) {
     { id: "weather", label: "Погода", run: quickWeather },
     { id: "joke", label: "Шутка", run: quickJoke },
 
+    { id: "games", label: "Игры ▸", items: [
+      { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
+      { id: "tic", label: "Крестики-нолики", run: function () { TIM.games.tic(); } },
+      { id: "pong", label: "Понг", run: function () { TIM.games.pong(); } },
+      { id: "runner", label: "Бегунок", run: function () { TIM.games.runner(); } },
+    ] },
     { id: "more", label: "Сервис ▸", items: [
       { id: "charge", label: "Заряд", run: function () { window.charge(); } },
       { id: "time", label: "Время", run: function () { quickTime(); } },
@@ -380,12 +387,6 @@ if (window.TIM && TIM.menu) {
         { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
         { id: "reset", label: "Начать сначала", run: function () { window.resetProgress(); } },
       ] },
-    ] },
-    { id: "games", label: "Игры ▸", items: [
-      { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
-      { id: "tic", label: "Крестики-нолики", run: function () { TIM.games.tic(); } },
-      { id: "pong", label: "Понг", run: function () { TIM.games.pong(); } },
-      { id: "runner", label: "Бегунок", run: function () { TIM.games.runner(); } },
     ] },
   ]);
 }

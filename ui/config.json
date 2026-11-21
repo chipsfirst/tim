@@ -1,7 +1,7 @@
 {
   "window": {
-    "width": 340,
-    "height": 500,
+    "width": 300,
+    "height": 340,
     "margin_right": 12,
     "margin_bottom": 2
   },
@@ -28,7 +28,9 @@
     "modem_min_ms": 210000,
     "modem_max_ms": 300000
   },
-  "reminders": { "every_ms": 2700000 },
+  "reminders": {
+    "every_ms": 2700000
+  },
   "hunger": {
     "bite_ms": 600000
   }

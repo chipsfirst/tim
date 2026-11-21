@@ -129,6 +129,28 @@
 
   document.addEventListener("click", function (e) {
     if (!e.target.closest) return;
+    if (e.target.closest("#tx")) {
+      e.stopPropagation();
+      if (window.TIM && TIM.tetris) TIM.tetris.close();
+      if (window.TIM && TIM.games) TIM.games.close();
+      return;
+    }
+    if (e.target.closest("#sound")) {
+      e.stopPropagation();
+      if (typeof window.toggleMute === "function") window.toggleMute();
+      return;
+    }
+    if (e.target.closest("#sleepbtn")) {
+      e.stopPropagation();
+      document.body.classList.toggle("screen-off");
+      return;
+    }
+    if (e.target.closest("#power")) {
+      e.stopPropagation();
+      if (window.TIM) window.TIM.quit = true;
+      if (window.pywebview && window.pywebview.api) window.pywebview.api.quit();
+      return;
+    }
     var key = e.target.closest("#widebtn") || e.target.closest("#collapse");
     if (!key) return;
     e.stopPropagation();

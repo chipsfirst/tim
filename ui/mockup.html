@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Макет: всё внутри монитора</title>
+<style>
+  html, body { margin: 0; height: 330px; background: #CFC8B7; overflow: hidden;
+    font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .robot { position: relative; width: 280px; height: 330px; margin: 0 auto; }
+  .case { position: absolute; left: 10px; top: 8px; width: 260px; height: 236px;
+    border-radius: 16px; background: linear-gradient(160deg, #F0EADB, #B0A691);
+    border: 3px solid #6E675A; box-shadow: 0 8px 20px rgba(30,20,10,.25); }
+  .screen { position: absolute; left: 22px; top: 20px; width: 236px; height: 212px;
+    border-radius: 8px; background: #071108; overflow: hidden;
+    box-shadow: inset 0 0 22px rgba(60,255,134,.16); }
+  .scan { position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(#071108 0 2px, #0A1A0F 2px 3px); opacity: .5; }
+  .stats { position: relative; display: flex; gap: 10px; padding: 4px 8px;
+    font-size: 11px; color: #FFFFFF; }
+  .stats b { font-weight: 700; }
+  .log { position: relative; height: 138px; overflow-y: auto; padding: 2px 8px;
+    font-size: 11px; line-height: 1.3; color: #9BFFC4; }
+  .log p { margin: 0 0 4px; }
+  .log .me { color: #CFFFE2; }
+  .log .bot { color: #9BFFC4; }
+  .input { position: relative; display: flex; gap: 4px; padding: 3px 6px 6px; }
+  .input input { flex: 1; height: 22px; font-size: 11px; padding: 1px 6px;
+    background: #0E2415; color: #CFFFE2; border: 1px solid #2A5A3A;
+    border-radius: 3px; outline: none; }
+  .input button { width: 24px; height: 22px; border: 1px solid #2A5A3A;
+    border-radius: 3px; background: #123020; color: #9BFFC4; cursor: pointer; }
+  .keys { position: absolute; left: 24px; top: 252px; width: 232px; height: 30px;
+    display: flex; gap: 6px; align-items: center; justify-content: center;
+    background: #CFC8B7; border: 1.5px solid #6E675A; border-radius: 6px;
+    box-shadow: 0 4px 8px rgba(30,20,10,.2); }
+  .keys span { width: 38px; height: 20px; border-radius: 4px; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: #E8E1D0; border: 1.2px solid #6E675A; color: #4E4838; }
+  .led { width: 7px; height: 7px; border-radius: 50%; background: #4BFF8D; }
+</style>
+</head>
+<body>
+  <div class="robot">
+    <div class="case"></div>
+    <div class="screen">
+      <div class="stats">⚡ <b>100</b> ♥ <b>100</b> ☾ <b>100</b></div>
+      <div class="log">
+        <p class="me">— Какая сегодня погода?</p>
+        <p class="bot">Погода в Москве: +3°, облачно, ветер 4 м/с. Оденься теплее.</p>
+        <p class="me">— Спасибо!</p>
+        <p class="bot">Всегда пожалуйста. Я тут, если что.</p>
+      </div>
+      <div class="input">
+        <input placeholder="Спроси Алису…">
+        <button>→</button>
+        <button>⌗</button>
+      </div>
+      <div class="scan"></div>
+    </div>
+    <div class="keys">
+      <span>⏻</span><span>≡</span><span>☾</span><span>🔊</span><span>⤢</span>
+      <i class="led"></i>
+    </div>
+  </div>
+</body>
+</html>
