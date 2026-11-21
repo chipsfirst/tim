@@ -199,11 +199,36 @@ class Api:
     def save_stats(self, data):
         return write_state(data if isinstance(data, dict) else {})
 
+    def toggle_expand(self):
+        log("toggle_expand called")
+        bot = self.bot
+        bot.expanded = not getattr(bot, "expanded", False)
+        w, h = (WIN_W + 180, WIN_H + 220) if bot.expanded else (WIN_W, WIN_H)
+        log("resize -> %dx%d" % (w, h))
+        try:
+            bot.win.resize(int(w), int(h))
+        except Exception as exc:
+            guard("resize", exc)
+            return {"ok": False, "error": repr(exc), "wide": bot.expanded}
+        bot.win_w, bot.win_h = w, h
+        try:
+            bot.setup_position()
+            plat.move_window(bot.win, bot.x, bot.y)
+        except Exception as exc:
+            guard("expand move", exc)
+        return {"ok": True, "w": w, "h": h, "wide": bot.expanded}
+
+    def autostart_toggle(self):
+        state = not plat.autostart_enabled()
+        ok = plat.set_autostart(state)
+        return state if ok else None
+
     def check_update(self):
         return latest_tag()
 
     def log_js(self, message, source="", line=0):
-        log("js: %s (%s:%s)" % (str(message)[:400], source, line), "error")
+        level = "info" if str(message).startswith("wide click") else "error"
+        log("js: %s (%s:%s)" % (str(message)[:400], source, line), level)
         return True
 
     def quit(self):
@@ -246,8 +271,10 @@ class Bot:
 
     def setup_position(self):
         wx, wy, ww, wh = self.work_area()
-        self.x = float(wx + ww - WIN_W - int(WINDOW_CFG.get("margin_right", 12)))
-        self.y = float(wy + wh - WIN_H - int(WINDOW_CFG.get("margin_bottom", 2)))
+        w = getattr(self, "win_w", WIN_W)
+        h = getattr(self, "win_h", WIN_H)
+        self.x = float(wx + ww - w - int(WINDOW_CFG.get("margin_right", 12)))
+        self.y = float(wy + wh - h - int(WINDOW_CFG.get("margin_bottom", 2)))
 
     def place(self):
         if self.placed or self.win is None:
@@ -481,7 +508,7 @@ class Bot:
                     if tick % LOOP_CFG.get("heartbeat_every", 100) == 0:
                         log("alive tick=%d hover=%s drag=%s regions=%s"
                             % (tick, self.hover, self.dragging,
-                               bool(self.regions.get("robot"))))
+                               self.regions.get("robot")))
                     if tick % LOOP_CFG.get("quit_check_every", 10) == 0:
                         if self.win.evaluate_js("window.TIM && window.TIM.quit") is True:
                             log("quit flag seen")

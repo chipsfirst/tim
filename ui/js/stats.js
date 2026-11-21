@@ -1,6 +1,6 @@
 // Показатели RPG: батарея, здоровье, сон.
 
-const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0 };
+const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0, unlocked: 1, days: {} };
 try {
   const saved = JSON.parse(localStorage.getItem("tim-stats") || "null");
   if (saved) for (const k in STATS) if (typeof saved[k] === "number") STATS[k] = saved[k];
@@ -13,16 +13,13 @@ function bump(key, delta) {
 }
 
 function paintStats() {
-  const num = (id, v) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.textContent = String(Math.round(v));
-      el.setAttribute("fill", v < 20 ? "#B4442E" : v < 40 ? "#8A6A1E" : "#4A4436");
-    }
-  };
-  num("n-batt", STATS.batt);
-  num("n-hp", STATS.hp);
-  num("n-sleep", STATS.sleep);
+
+  ["batt", "hp", "sleep"].forEach((k) => {
+    const t = document.getElementById("n-" + k);
+    if (!t) return;
+    t.textContent = String(Math.round(STATS[k]));
+    t.setAttribute("fill", STATS[k] < 20 ? "#FF8A7A" : STATS[k] < 40 ? "#FFD166" : "#FFFFFF");
+  });
   document.body.classList.toggle("low-batt", STATS.batt < 20);
   document.body.classList.toggle("low-hp", STATS.hp < 30);
   document.body.classList.toggle("low-sleep", STATS.sleep < 15);
@@ -76,6 +73,7 @@ function loadFromDisk() {
     if (!data) return;
     Object.keys(STATS).forEach((k) => {
       if (typeof data[k] === "number") STATS[k] = data[k];
+      if (k === "days" && data[k] && typeof data[k] === "object") STATS.days = data[k];
     });
     paintStats();
   }).catch(() => {});
@@ -85,7 +83,8 @@ function saveToDisk() {
   const api = API();
   if (!api || !api.save_stats) return;
   api.save_stats({
-    batt: STATS.batt, hp: STATS.hp, sleep: STATS.sleep, xp: STATS.xp,
+    batt: STATS.batt, hp: STATS.hp, sleep: STATS.sleep,
+    xp: STATS.xp, unlocked: STATS.unlocked, days: STATS.days,
   }).catch(() => {});
 }
 
@@ -94,6 +93,22 @@ setTimeout(loadFromDisk, 1200);
 TIM.startStats = startStats;
 paintStats();
 
+function today() {
+  const d = new Date();
+  return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+}
+
+function dayNote() {
+  const key = today();
+  STATS.days = STATS.days || {};
+  STATS.days[key] = STATS.days[key] || { feed: 0, days: 0 };
+  return STATS.days[key];
+}
+
+function feedToday() {
+  dayNote().feed += 1;
+}
+
 function level() { return 1 + Math.floor(STATS.xp / 100); }
 function xpLeft() { return 100 - (STATS.xp % 100); }
 
@@ -101,7 +116,10 @@ function gainXp() {
   if (STATS.hp > 50 && STATS.batt > 30 && STATS.sleep > 40) {
     STATS.xp += 1;
     if (STATS.xp % 100 === 0) {
-      showAnswer("Уровень " + level() + "! Спасибо, что не забываешь.", false);
+      STATS.unlocked = level();
+      const prize = { 2: "новая рожица", 3: "ещё одна гримаса", 5: "зубастая улыбка" }[level()];
+      showAnswer("Уровень " + level() + "!" + (prize ? " Открылась " + prize + "." : "")
+        + " Спасибо, что не забываешь.", false);
       gesture("g-happy", 1400);
       chirp("ok");
     }
@@ -134,7 +152,8 @@ window.info = function () {
     "Батарея: " + Math.round(STATS.batt) + "% — " + word(STATS.batt) + "\n" +
     "Здоровье: " + Math.round(STATS.hp) + "% — " + word(STATS.hp) + "\n" +
     "Сон: " + Math.round(STATS.sleep) + "% — " + word(STATS.sleep) + "\n" +
-    "Уровень " + level() + " · опыт " + (STATS.xp % 100) + "/100 (ещё " + xpLeft() + ")",
+    "Сегодня: покормлен " + dayNote().feed + " раз(а)" +
+    "\n" + "Уровень " + level() + " · опыт " + (STATS.xp % 100) + "/100 (ещё " + xpLeft() + ")",
     false
   );
   gesture("g-blink", 400);

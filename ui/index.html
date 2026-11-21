@@ -64,10 +64,6 @@
 
     <ellipse cx="110" cy="246" rx="44" ry="4" fill="#000" opacity="0.15"/>
 
-    <!-- подставка -->
-    <rect x="104" y="222" width="12" height="16" fill="url(#post)" stroke="#6E675A" stroke-width="2"/>
-    <rect x="86" y="238" width="48" height="7" rx="3.5" fill="#C9C2B1" stroke="#6E675A" stroke-width="2.5"/>
-
     <!-- корпус -->
     <rect x="16" y="90" width="188" height="132" rx="11" fill="url(#case)" stroke="#6E675A" stroke-width="3"/>
     <rect x="19" y="93" width="182" height="126" rx="9" fill="url(#caseTop)" opacity="0.9"/>
@@ -79,31 +75,31 @@
     <circle cx="195.5" cy="213.5" r="1.5" fill="#8B8271" opacity="0.7"/>
 
     <!-- экран почти во всю ширину корпуса -->
-    <rect x="29" y="94" width="150" height="108" rx="9" fill="url(#bezel)" stroke="#6E675A" stroke-width="1.4"/>
-    <rect x="31.5" y="96.5" width="145" height="103" rx="7" fill="none" stroke="#000000" stroke-width="1.8" opacity="0.5"/>
-    <rect id="screen" x="34" y="99" width="140" height="98" rx="6" fill="#071108"/>
-    <rect x="34" y="99" width="140" height="98" rx="6" fill="url(#glass)"/>
+    <rect x="22" y="93" width="176" height="124" rx="9" fill="url(#bezel)" stroke="#6E675A" stroke-width="1.4"/>
+    <rect x="24.5" y="95.5" width="171" height="119" rx="7" fill="none" stroke="#000000" stroke-width="1.8" opacity="0.5"/>
+    <rect id="screen" x="25" y="96" width="170" height="118" rx="6" fill="#071108"/>
+    <rect x="25" y="96" width="170" height="118" rx="6" fill="url(#glass)"/>
 
     <g id="eyes" shape-rendering="crispEdges">
       <g class="eye" data-side="left">
-        <rect x="60" y="112" width="28" height="22" fill="#0E3A1B"/>
-        <rect class="pupil" x="68" y="118" width="10" height="10" fill="#66FF9E"/>
+        <rect x="60" y="134" width="28" height="22" fill="#0E3A1B"/>
+        <rect class="pupil" x="68" y="140" width="10" height="10" fill="#66FF9E"/>
       </g>
       <g class="eye" data-side="right">
-        <rect x="122" y="112" width="28" height="22" fill="#0E3A1B"/>
-        <rect class="pupil" x="130" y="118" width="10" height="10" fill="#66FF9E"/>
+        <rect x="122" y="134" width="28" height="22" fill="#0E3A1B"/>
+        <rect class="pupil" x="130" y="140" width="10" height="10" fill="#66FF9E"/>
       </g>
     </g>
 
     <g id="caret" shape-rendering="crispEdges">
-      <rect x="100" y="146" width="8" height="12" fill="#66FF9E"/>
+      <rect x="100" y="170" width="8" height="12" fill="#66FF9E"/>
     </g>
 
     <g id="mouth" shape-rendering="crispEdges" fill="#3CFF86">
       <g id="face-smile">
-        <rect x="88" y="146" width="4" height="4"/>
-        <rect x="92" y="150" width="28" height="4"/>
-        <rect x="120" y="146" width="4" height="4"/>
+        <rect x="88" y="170" width="4" height="4"/>
+        <rect x="92" y="174" width="28" height="4"/>
+        <rect x="120" y="170" width="4" height="4"/>
       </g>
       <g id="face-open">
         <rect x="94" y="143" width="20" height="4"/>
@@ -131,63 +127,57 @@
         <rect x="98" y="155" width="12" height="2"/>
       </g>
       <g id="face-tongue">
-        <rect x="88" y="146" width="4" height="4"/>
-        <rect x="92" y="150" width="28" height="4"/>
-        <rect x="120" y="146" width="4" height="4"/>
+        <rect x="88" y="170" width="4" height="4"/>
+        <rect x="92" y="174" width="28" height="4"/>
+        <rect x="120" y="170" width="4" height="4"/>
         <rect x="98" y="154" width="10" height="6" fill="#FF6B8A"/>
       </g>
     </g>
 
-    <rect id="scanrect" x="34" y="99" width="140" height="98" rx="6" fill="url(#scan)"/>
+    <rect id="scanrect" x="25" y="96" width="170" height="118" rx="6" fill="url(#scan)"/>
 
     <!-- кнопки справа от экрана -->
-    <g id="power" class="btn">
-      <circle cx="190" cy="112" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
-      <path d="M190 107.8 v4.2" stroke="#6E675A" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M187.2 109.2 a4.5 4.5 0 1 0 5.6 0" fill="none" stroke="#6E675A" stroke-width="1.3"/>
-    </g>
-
-    <g id="mbtn" class="btn">
-      <circle cx="190" cy="142" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
-      <path d="M186.4 139.4 h7.2 M186.4 142 h7.2 M186.4 144.6 h7.2" stroke="#5B5445" stroke-width="1.4" stroke-linecap="round"/>
-    </g>
-
-    <g id="sleepbtn" class="btn">
-      <circle cx="190" cy="172" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
-      <path d="M190 167.4 a5 5 0 1 0 5 6.6 5.8 5.8 0 0 1-5-6.6 z" fill="#6E675A"/>
-    </g>
-
-    <g id="sound" class="btn">
-      <circle cx="190" cy="202" r="7.5" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.7"/>
-      <path d="M186.2 200 h1.9 l2.3-1.9 v6.4 l-2.3-1.9 h-1.9 z" fill="#6E675A"/>
-      <path d="M192.2 199.4 a3.6 3.6 0 0 1 0 4.6" fill="none" stroke="#6E675A" stroke-width="1"/>
-      <line id="sound-off" x1="185.6" y1="205" x2="193.4" y2="199.2" stroke="#B4442E" stroke-width="1.7" stroke-linecap="round"/>
-    </g>
 
     <!-- показатели внизу корпуса, с отступом от края -->
     <g id="stats" font-family="ui-monospace,Menlo,Consolas,monospace">
       <g id="g-batt">
         <title>Батарея</title>
-        <path d="M44 205 h6.5 l-3.8 4.6 h4.6 l-7.4 8.4 1.9-5.6 h-3.7 z" fill="#E8A93C"/>
-        <text id="n-batt" x="58" y="217" font-size="14" font-weight="700" fill="#4A4436">100</text>
+        <path d="M34 199 h5 l-3 3.6 h3.6 l-5.6 6.4 1.4-4.2 h-2.8 z" fill="#E8A93C"/>
+        
       </g>
       <g id="g-hp">
         <title>Здоровье</title>
-        <path d="M96 209 c0-3.8 4.7-4.4 6-1.7 1.3-2.7 6-2.1 6 1.7 0 3.2-6 6.9-6 6.9 s-6-3.7-6-6.9 z" fill="#C2503C"/>
-        <text id="n-hp" x="110" y="217" font-size="14" font-weight="700" fill="#4A4436">100</text>
+        <path d="M92 202 c0-3 3.6-3.4 4.6-1.3 1-2.1 4.6-1.7 4.6 1.3 0 2.4-4.6 5.2-4.6 5.2 s-4.6-2.8-4.6-5.2 z" fill="#C2503C"/>
+        
       </g>
       <g id="g-sleep">
         <title>Сон</title>
-        <path d="M146 204 a6.6 6.6 0 1 0 7.2 8.4 7.8 7.8 0 0 1-7.2-8.4 z" fill="#3E86B8"/>
-        <text id="n-sleep" x="160" y="217" font-size="14" font-weight="700" fill="#4A4436">100</text>
+        <path d="M150 198 a4.6 4.6 0 1 0 5.2 6 5.6 5.6 0 0 1-5.2-6 z" fill="#3E86B8"/>
+        
       </g>
     </g>
 
-    <circle id="led" cx="190" cy="219" r="3" fill="#4BFF8D"/>
+    <!-- клавиши на передней панели -->
+    <rect x="41" y="224" width="138" height="20" rx="4" fill="url(#case)" stroke="#6E675A" stroke-width="1.4"/>
+    <rect x="41" y="238" width="138" height="6" rx="3" fill="#8F8674" opacity="0.35"/>
+    <g id="power" class="btn"><rect x="45" y="227" width="22" height="14" rx="3" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.2"/>
+      <path d="M56 230.5 v3" stroke="#4E4838" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M53.8 231.6 a3.2 3.2 0 1 0 4.4 0" fill="none" stroke="#4E4838" stroke-width="1.2"/></g>
+    <g id="mbtn" class="btn"><rect x="71" y="227" width="22" height="14" rx="3" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.2"/>
+      <path d="M77 231 h10 M77 234 h10 M77 237 h10" stroke="#4E4838" stroke-width="1.3" stroke-linecap="round"/></g>
+    <g id="sleepbtn" class="btn"><rect x="97" y="227" width="22" height="14" rx="3" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.2"/>
+      <path d="M110.6 230.2 a4 4 0 1 0 0 7.6 3.2 3.2 0 0 1 0-7.6 z" fill="#4E4838"/></g>
+    <g id="sound" class="btn"><rect x="123" y="227" width="22" height="14" rx="3" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.2"/>
+      <path d="M133 232 h2 l2.4-2 v8 l-2.4-2 h-2 z" fill="#4E4838"/>
+      <path d="M139 231.4 a3.6 3.6 0 0 1 0 5.2" fill="none" stroke="#4E4838" stroke-width="1.1"/><line id="sound-off" x1="131" y1="238" x2="143" y2="230" stroke="#B4442E" stroke-width="1.8" stroke-linecap="round"/></g>
+    <text id="n-batt" x="58" y="207" font-size="11" fill="#FFFFFF">100</text><text id="n-hp" x="114" y="207" font-size="11" fill="#FFFFFF">100</text><text id="n-sleep" x="170" y="207" font-size="11" fill="#FFFFFF">100</text>
+    <g id="widebtn" class="btn"><rect x="149" y="227" width="22" height="14" rx="3" fill="url(#btnFace)" stroke="#6E675A" stroke-width="1.2"/>
+      <text x="160" y="237.5" font-size="10" text-anchor="middle" fill="#4E4838" font-family="ui-monospace,Menlo,monospace">&#10530;</text></g>
+    <circle id="led" cx="188" cy="218" r="3" fill="#4BFF8D"/>
   </svg>
 </div>
 
-<canvas id="tw" width="140" height="280"></canvas>
+<canvas id="tw" width="190" height="132"></canvas>
 <button id="tx" title="Выйти (Esc)">✕</button>
 <div id="menu" role="menu"></div>
 
@@ -196,6 +186,7 @@
 <script src="js/faces.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/tetris.js"></script>
+<script src="js/games.js"></script>
 <script src="js/menu.js"></script>
 <script src="app.js"></script>
 </body>

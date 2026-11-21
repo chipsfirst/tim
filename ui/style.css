@@ -114,7 +114,7 @@ body.muted #sound { opacity: 0.7; }
 #panel {
   position: absolute;
   left: 50%;
-  bottom: 200px;
+  bottom: 188px;
   transform: translate(-50%, 0);
   display: flex;
   align-items: center;
@@ -167,7 +167,7 @@ body.muted #sound { opacity: 0.7; }
 #bubble {
   position: absolute;
   left: 50%;
-  bottom: 272px;
+  bottom: 240px;
   transform: translate(-50%, 8px) scale(0.96);
   width: 244px;
   max-width: 244px;
@@ -240,3 +240,31 @@ body.face-wide #face-wide,
 body.face-flat #face-flat,
 body.face-o #face-o,
 body.face-tongue #face-tongue { display: block; }
+
+/* ---------- мягкое появление ---------- */
+
+#robot { opacity: 0; animation: idle 4.5s ease-in-out infinite, appear 0.9s ease-out 0.15s forwards; }
+@keyframes appear {
+  from { opacity: 0; transform: translateY(12px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.btn { transition: transform 0.12s ease, filter 0.12s ease; }
+.btn:active rect { fill: #DCD5C4; }
+.btn.pressed { filter: brightness(1.12); }
+.btn.pressed circle { stroke: #3CFF86; }
+
+.btn:hover rect { fill: #F5EFE2; stroke: #3CFF86; stroke-width: 1.2; }
+
+/* ---------- расширенный режим ---------- */
+
+body.wide #robot { transform: scale(1.25); transform-origin: bottom center; }
+body.wide #bubble { width: 380px; max-width: 380px; max-height: 320px; display: block; }
+body.wide #panel { width: 360px; display: flex; }
+body.wide #menu { width: 210px; height: 150px; }
+
+body.wide #robot { transform: scale(1); }
+
+#sound-off { opacity: 0; }
+body.muted #sound-off { opacity: 1; }
+body.muted #sound rect { fill: #E9D6D0; }

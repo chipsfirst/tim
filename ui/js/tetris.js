@@ -4,7 +4,7 @@
   var c = document.getElementById("tw");
   if (!c) return;
   var x = c.getContext("2d");
-  var W = 10, H = 20, S = 14;
+  var W = 10, H = 20, S = 6;
   var P = [[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],
            [[0,0,1],[1,1,1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]]];
   var g, cur, px, py, score, over, timer;

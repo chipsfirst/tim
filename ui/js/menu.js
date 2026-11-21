@@ -8,6 +8,7 @@
   var el = null;
   var btn = null;
   var handlers = {};
+  var stack = [];
 
   function report() {
     if (typeof window.reportRegions === "function") window.reportRegions();
@@ -29,8 +30,17 @@
     report();
   }
 
+  function back() {
+    if (stack.length) mount(stack.pop());
+  }
+
   function run(id) {
     var fn = handlers[id];
+    if (fn && typeof fn === "object" && fn.items) {
+      stack.push(current);
+      mount(fn.items, true);
+      return;
+    }
     close();
     if (typeof fn !== "function") {
       if (window.showAnswer) window.showAnswer("Команда «" + id + "» недоступна.", false);
@@ -52,16 +62,23 @@
 
   function audit() {
     return Object.keys(handlers).filter(function (id) {
-      return typeof handlers[id] !== "function";
+      var h = handlers[id];
+      return !(typeof h === "function" || (h && typeof h === "object" && h.items));
     });
   }
 
-  function mount(list) {
+  var current = [];
+
+  function mount(list, keepStack) {
+    if (keepStack !== true) stack = [];
     if (!ensure()) { pending = list; return; }
+    current = list;
     handlers = {};
     el.innerHTML = "";
-    (list || []).forEach(function (item) {
-      handlers[item.id] = item.run;
+    var items = list || [];
+    if (stack.length) items = [{ id: "back", label: "← Назад", run: back }].concat(items);
+    items.forEach(function (item) {
+      handlers[item.id] = item.items ? { items: item.items } : item.run;
       var b = document.createElement("button");
       b.textContent = item.label;
       b.dataset.act = item.id;
@@ -109,6 +126,15 @@
       run(item.dataset.act);
     });
   }
+
+  document.addEventListener("click", function (e) {
+    var key = e.target.closest && e.target.closest("#widebtn");
+    if (!key) return;
+    e.stopPropagation();
+    var api = window.pywebview && window.pywebview.api;
+    if (api && api.log_js) api.log_js("wide click (delegated)");
+    if (typeof window.toggleWide === "function") window.toggleWide();
+  });
 
   document.addEventListener("DOMContentLoaded", function () {
     ensure();

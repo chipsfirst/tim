@@ -53,7 +53,11 @@ def move_window(win, x, y):
 
 
 def set_click_through(win, ignore):
-    """Прозрачность для мыши: вне робота клики уходят на рабочий стол."""
+    """Отключено: прозрачное окно съедало клики по кнопкам на корпусе."""
+    return None
+
+
+def _old_set_click_through(win, ignore):
     try:
         native = getattr(win, "native", None)
         if native is None or not hasattr(native, "setIgnoresMouseEvents_"):
@@ -188,3 +192,20 @@ def _log(msg, level="info"):
         log(msg, level)
     except Exception:
         pass
+
+
+def autostart_enabled():
+    return os.path.exists(os.path.expanduser(PLIST))
+
+
+def set_autostart(enabled):
+    path = os.path.expanduser(PLIST)
+    if enabled:
+        return install_autostart()
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+        return True
+    except Exception as exc:
+        _log("autostart off: %r" % exc)
+        return False

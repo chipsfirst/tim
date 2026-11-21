@@ -65,6 +65,27 @@ const IDLE = [
   "Разомнись немного, я подожду.",
 ];
 
+function quoteTick() {
+  setTimeout(function () {
+    if (!busy && !document.body.classList.contains("g-sleep")
+        && !document.body.classList.contains("screen-off")) {
+      showAnswer(QUOTES[Math.floor(Math.random() * QUOTES.length)], false);
+      gesture("g-blink", 400);
+    }
+    quoteTick();
+  }, 240000 + Math.random() * 300000);
+}
+
+function tuneTick() {
+  setTimeout(function () {
+    if (!muted && !busy && !document.body.classList.contains("g-sleep")) {
+      playTune();
+      gesture("g-happy", 1200);
+    }
+    tuneTick();
+  }, 420000 + Math.random() * 480000);
+}
+
 function idleTalk() {
   const delay = TIM.setting("humor.idle_min_ms", 150000)
     + Math.random() * TIM.setting("humor.idle_max_ms", 240000);
@@ -83,7 +104,37 @@ function idleTalk() {
 
 /* ---------------------------------------------- быстрые ответы */
 
+const QUOTES = [
+  "May the Force be with you.",
+  "I'll be back.",
+  "Houston, we have a problem.",
+  "To infinity and beyond!",
+  "Elementary, my dear Watson.",
+  "Winter is coming.",
+  "I am your father.",
+  "Roads? Where we're going we don't need roads.",
+  "There's no place like home.",
+  "I'll have what she's having.",
+  "Шеф, всё пропало.",
+  "Спокойно, всё по плану.",
+  "Я не волшебник, я только учусь.",
+  "Всё, что ни делается — всё к лучшему.",
+  "За работу, товарищи!",
+  "Спокойствие, только спокойствие.",
+  "Это не баг, это фича.",
+  "Терпение и труд всё перетрут.",
+];
+
 const JOKES = [
+  "Программист ставит на ночь два стакана: один с водой — если захочет пить, второй пустой — если не захочет.",
+  "— Как называется страх перед программированием? — Кодофобия. — А перед роботами? — Кодофобия тоже, только громче.",
+  "Почему роботы не болеют? Потому что у них всё железное, кроме нервов.",
+  "Я не зависаю. Я просто думаю очень выразительно.",
+  "Спрашиваю у тостера, как дела. Он говорит: всё путём, только подгорает.",
+  "Оптимист видит стакан наполовину полным. Программист — что стакан не инициализирован.",
+  "Мой любимый вид спорта — перетаскивание файлов. Иногда с замиранием сердца.",
+  "Дед Мороз спрашивает робота: что тебе подарить? — Новый блок питания. Старый стал философом.",
+  "Робот приходит к врачу: доктор, у меня всё болит. — Где именно? — Везде, кроме инструкции.",
   "Почему программисты путают Хэллоуин и Рождество? Потому что oct 31 == dec 25.",
   "У меня нет нервов — только провода. Зато стальные.",
   "Спрашиваю у Алисы совета. Она говорит: «Спроси Т.И.М.». Прогресс!",
@@ -223,6 +274,7 @@ let hunger = 0;
 function feed() {
   hunger = 0;
   if (typeof bump === "function") { bump("hp", 12); bump("batt", 3); }
+  if (typeof feedToday === "function") feedToday();
   showAnswer("Ням! Спасибо, вкусно.", false);
   gesture("g-happy", 1200);
   [0, 160, 320].forEach((t) => setTimeout(() => blip(300, 0.07, "square", 180, 0.1), t));
@@ -387,15 +439,27 @@ window.addEventListener("pywebviewready", () => {
 if (window.TIM && TIM.menu) {
   TIM.menu.mount([
     { id: "feed", label: "Покормить", run: feed },
-    { id: "charge", label: "Заряд", run: function () { window.charge(); } },
     { id: "dance", label: "Танец", run: dance },
     { id: "weather", label: "Погода", run: quickWeather },
-    { id: "time", label: "Время", run: quickTime },
     { id: "joke", label: "Шутка", run: quickJoke },
-    { id: "info", label: "Состояние", run: function () { window.info(); } },
-    { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
-    { id: "update", label: "Обновления", run: function () { window.checkUpdate(); } },
-    { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
+
+    { id: "more", label: "Сервис ▸", items: [
+      { id: "charge", label: "Заряд", run: function () { window.charge(); } },
+      { id: "time", label: "Время", run: function () { quickTime(); } },
+      { id: "info", label: "Состояние", run: function () { window.info(); } },
+      { id: "settings", label: "Настройки", run: function () { window.settingsCard(); } },
+      { id: "reminder", label: "Напоминания", run: function () { window.toggleReminder(); } },
+      { id: "autostart", label: "Автозапуск", run: function () { window.toggleAutostart(); } },
+      { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
+      { id: "update", label: "Обновления", run: function () { window.checkUpdate(); } },
+      { id: "reset", label: "Начать сначала", run: function () { window.resetProgress(); } },
+    ] },
+    { id: "games", label: "Игры ▸", items: [
+      { id: "tetris", label: "Тетрис", run: function () { TIM.tetris.start(); } },
+      { id: "tic", label: "Крестики-нолики", run: function () { TIM.games.tic(); } },
+      { id: "pong", label: "Понг", run: function () { TIM.games.pong(); } },
+      { id: "runner", label: "Бегунок", run: function () { TIM.games.runner(); } },
+    ] },
   ]);
 }
 
@@ -416,6 +480,71 @@ window.diag = function () {
   showAnswer(lines.join("\n"), false);
 };
 
+let reminderTimer = null;
+
+window.toggleReminder = function () {
+  if (reminderTimer) {
+    clearInterval(reminderTimer);
+    reminderTimer = null;
+    showAnswer("Напоминания выключены.", false);
+    return;
+  }
+  const ms = TIM.setting("reminders.every_ms", 2700000);
+  reminderTimer = setInterval(() => {
+    if (document.body.classList.contains("g-sleep")) return;
+    showAnswer("Ты давно за экраном. Встань, разомнись, попей воды.", false);
+    gesture("g-squint", 1200);
+    chirp("think");
+  }, ms);
+  showAnswer("Буду напоминать раз в " + Math.round(ms / 60000) + " мин.", false);
+};
+
+window.toggleWide = function () {
+  const api = API();
+  const next = !document.body.classList.contains("wide");
+  document.body.classList.toggle("wide", next);
+  if (!api || !api.toggle_expand) return;
+  api.toggle_expand().then((r) => {
+    if (!r || !r.ok) {
+      showAnswer("Окно не изменилось: " + ((r && r.error) || "нет ответа") + ". Режим включён внутри окна.", false);
+      return;
+    }
+    showAnswer(r.wide ? ("Развернулся: " + r.w + "×" + r.h) : "Свернулся обратно.", false);
+  }).catch((e) => showAnswer("Ошибка режима: " + e, false));
+};
+
+window.settingsCard = function () {
+  const api = API();
+  showAnswer(
+    "Звук: " + (muted ? "выключен" : "включён") + "\n" +
+    "Напоминания: " + (reminderTimer ? "включены" : "выключены") + "\n" +
+    "Автозапуск: переключается пунктом меню\n" +
+    "Звук: кнопка-динамик на корпусе", false);
+};
+
+window.toggleAutostart = function () {
+  const api = API();
+  if (!api || !api.autostart_toggle) {
+    showAnswer("Автозапуск недоступен.", false);
+    return;
+  }
+  api.autostart_toggle().then((state) => {
+    if (state === null) showAnswer("Не удалось изменить автозапуск.", false);
+    else showAnswer(state ? "Буду стартовать вместе с системой." : "Автозапуск выключен.", false);
+  }).catch(() => showAnswer("Не удалось изменить автозапуск.", false));
+};
+
+window.resetProgress = function () {
+  if (!confirm("Начать сначала? Шкалы и уровень обнулятся.")) return;
+  Object.keys(STATS).forEach((k) => { STATS[k] = k === "xp" ? 0 : 100; });
+  paintStats();
+  saveStats();
+  if (API() && API().save_stats) API().save_stats({ batt: 100, hp: 100, sleep: 100, xp: 0 });
+  showAnswer("Начинаем сначала. Уровень 1.", false);
+  gesture("g-blink", 400);
+  chirp("ok");
+};
+
 window.checkUpdate = function () {
   const api = API();
   if (!api || !api.check_update) {
@@ -434,6 +563,8 @@ setTimeout(reportRegions, 800);
 setTimeout(reportRegions, 2500);
 
 function boot() {
+  quoteTick();
+  tuneTick();
   modemLoop();
   hungerLoop();
   if (window.TIM && TIM.startStats) TIM.startStats();
@@ -443,7 +574,7 @@ function boot() {
   setTimeout(() => {
     showAnswer("Привет, друг! Я на связи.", false);
     gesture("g-happy", 1200);
-    chirp("ok");
+    chirp("think");
     setTimeout(() => {
       if (!busy) $("bubble").classList.remove("show");
     }, 7000);

@@ -82,9 +82,9 @@ class MenuTest(unittest.TestCase):
         app = read("ui/app.js")
         block = app[app.index("TIM.menu.mount(["):app.index("]);", app.index("TIM.menu.mount(["))]
         ids = re.findall(r'id: "([a-z]+)"', block)
-        self.assertEqual(
-            ids, ["feed", "charge", "dance", "weather", "time", "joke", "info", "diag", "update", "tetris"])
-        self.assertEqual(block.count("run:"), len(ids))
+        for required in ("feed", "dance", "weather", "joke", "games", "more"):
+            self.assertIn(required, ids)
+        self.assertEqual(block.count("run:") + block.count("items:"), block.count('id: "'))
 
     def test_menu_script_exists(self):
         self.assertTrue(os.path.exists(os.path.join(ROOT, "ui/js/menu.js")))

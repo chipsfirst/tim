@@ -35,7 +35,13 @@ function scheduleFace() {
   setTimeout(() => {
     if (!document.body.classList.contains("screen-off")
         && !document.body.classList.contains("g-sleep")) {
-      const [cls, ms] = FACES[Math.floor(Math.random() * FACES.length)];
+      const open = FACES.filter(function (f, i) {
+        const lvl = (window.STATS && STATS.unlocked) || 1;
+        return i < 2 || lvl >= i;
+      });
+      const pick = (open.length ? open : FACES)[
+        Math.floor(Math.random() * (open.length ? open.length : FACES.length))];
+      const cls = pick[0], ms = pick[1];
       clearFace();
       document.body.classList.add(cls);
       if (Math.random() < 0.55) chirp(Math.random() < 0.5 ? "ok" : "think");

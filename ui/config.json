@@ -28,6 +28,7 @@
     "modem_min_ms": 210000,
     "modem_max_ms": 300000
   },
+  "reminders": { "every_ms": 2700000 },
   "hunger": {
     "bite_ms": 600000
   }

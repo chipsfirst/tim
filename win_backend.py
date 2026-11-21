@@ -239,3 +239,33 @@ def start_drag(bot):
 
 def call_soon(fn):
     fn()
+
+
+def autostart_enabled():
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                             winreg.KEY_READ)
+        try:
+            winreg.QueryValueEx(key, "TIM")
+            return True
+        finally:
+            winreg.CloseKey(key)
+    except Exception:
+        return False
+
+
+def set_autostart(enabled):
+    if enabled:
+        return install_autostart()
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                             r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                             winreg.KEY_SET_VALUE)
+        winreg.DeleteValue(key, "TIM")
+        winreg.CloseKey(key)
+        return True
+    except Exception:
+        return False
