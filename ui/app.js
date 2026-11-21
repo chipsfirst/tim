@@ -47,11 +47,44 @@ function onHover(value) {
 
 /* ---------------------------------------------- ответ */
 
+let voiceOn = false;
+
+window.toggleVoice = function () {
+  voiceOn = !voiceOn;
+  showAnswer(voiceOn ? "Буду читать ответы вслух." : "Читать вслух больше не буду.", false);
+};
+
+const bubbleBox = $("bubble");
+if (bubbleBox) {
+  bubbleBox.tabIndex = 0;
+  bubbleBox.addEventListener("wheel", function (e) { e.stopPropagation(); }, { passive: false });
+  bubbleBox.addEventListener("keydown", function (e) {
+    const step = 40;
+    if (e.key === "PageDown" || e.key === "ArrowDown") { bubbleBox.scrollTop += step; e.preventDefault(); }
+    else if (e.key === "PageUp" || e.key === "ArrowUp") { bubbleBox.scrollTop -= step; e.preventDefault(); }
+  });
+}
+
 function showAnswer(text, thinking) {
   $("bubble-text").textContent = text;
   $("bubble").classList.add("show");
   $("bubble").classList.toggle("thinking", !!thinking);
-  $("bubble").scrollTop = 0;
+  try { localStorage.setItem("tim-last-answer", String(text || "").slice(0, 12000)); } catch (e) {}
+  try {
+    const api = API();
+    if (api && api.save_last) api.save_last(String(text || "").slice(0, 12000));
+    if (api && api.log_js) api.log_js("save_last: " + String(text || "").length + " chars");
+  } catch (e) {}
+  if (!thinking && voiceOn) {
+    const api = API();
+    if (api && api.speak) api.speak(String(text).slice(0, 400)).catch(() => {});
+  }
+  if (thinking) {
+    text = "Алиса думает";
+    window.__restored = false;
+  }
+  const box = $("bubble");
+  box.scrollTop = box.scrollHeight;
 }
 
 /* ---------------------------------------------- реплики в простое */
@@ -193,7 +226,7 @@ function floppySound() {
 function dance() {
   const seq = [520, 660, 780, 660, 880, 780, 990];
   seq.forEach((f, i) => setTimeout(() => blip(f, 0.14, "square", f * 1.2, 0.12), i * 140));
-  showAnswer("Танцую!", false);
+  showAnswer("Танцую!" + (window.stateLine ? window.stateLine() : ""), false);
   gesture("g-scan", 900);
   setTimeout(() => gesture("g-happy", 900), 950);
   setTimeout(() => gesture("g-left", 700), 1900);
@@ -205,7 +238,8 @@ function feed() {
   hunger = 0;
   if (typeof bump === "function") { bump("hp", 12); bump("batt", 3); }
   if (typeof feedToday === "function") feedToday();
-  showAnswer("Ням! Спасибо, вкусно.", false);
+  if (typeof window.addCoins === "function") window.addCoins(1);
+  showAnswer("Ням! Спасибо, вкусно." + (window.stateLine ? window.stateLine() : ""), false);
   gesture("g-happy", 1200);
   [0, 160, 320].forEach((t) => setTimeout(() => blip(300, 0.07, "square", 180, 0.1), t));
 }
@@ -376,12 +410,21 @@ if (window.TIM && TIM.menu) {
       { id: "pong", label: "Понг", run: function () { TIM.games.pong(); } },
       { id: "runner", label: "Бегунок", run: function () { TIM.games.runner(); } },
     ] },
+    { id: "adult", label: "Позвать взрослого", run: function () { window.callAdult(); } },
+    { id: "guess", label: "Угадай число", run: function () { window.startGuess(); } },
+    { id: "shop", label: "Магазин ▸", items: [
+      { id: "buy-green", label: "Зелёная (0)", run: function () { window.buyTheme("green"); } },
+      { id: "buy-blue", label: "Синяя (10)", run: function () { window.buyTheme("blue"); } },
+      { id: "buy-red", label: "Красная (15)", run: function () { window.buyTheme("red"); } },
+      { id: "buy-gold", label: "Золотая (25)", run: function () { window.buyTheme("gold"); } },
+    ] },
     { id: "more", label: "Сервис ▸", items: [
       { id: "charge", label: "Заряд", run: function () { window.charge(); } },
       { id: "time", label: "Время", run: function () { quickTime(); } },
       { id: "info", label: "Состояние", run: function () { window.info(); } },
       { id: "setup", label: "Настройки ▸", items: [
-        { id: "reminder", label: "Напоминания", run: function () { window.toggleReminder(); } },
+        { id: "voice", label: "Голос вкл/выкл", run: function () { window.toggleVoice(); } },
+      { id: "reminder", label: "Напоминания", run: function () { window.toggleReminder(); } },
         { id: "autostart", label: "Автозапуск", run: function () { window.toggleAutostart(); } },
         { id: "update", label: "Обновления", run: function () { window.checkUpdate(); } },
         { id: "diag", label: "Диагностика", run: function () { window.diag(); } },
@@ -433,11 +476,7 @@ window.toggleWide = function () {
   document.body.classList.toggle("wide", next);
   if (!api || !api.toggle_expand) return;
   api.toggle_expand().then((r) => {
-    if (!r || !r.ok) {
-      showAnswer("Окно не изменилось: " + ((r && r.error) || "нет ответа") + ". Режим включён внутри окна.", false);
-      return;
-    }
-    showAnswer(r.wide ? ("Развернулся: " + r.w + "×" + r.h) : "Свернулся обратно.", false);
+    if (!r || !r.ok) return;
   }).catch((e) => showAnswer("Ошибка режима: " + e, false));
 };
 
@@ -460,6 +499,63 @@ window.toggleAutostart = function () {
     if (state === null) showAnswer("Не удалось изменить автозапуск.", false);
     else showAnswer(state ? "Буду стартовать вместе с системой." : "Автозапуск выключен.", false);
   }).catch(() => showAnswer("Не удалось изменить автозапуск.", false));
+};
+
+let guessGame = null;
+
+window.callAdult = function () {
+  showAnswer("Зову взрослых! Эй, тут нужен человек.", false);
+  for (let i = 0; i < 6; i += 1) {
+    setTimeout(() => blip(1200, 0.18, "square", 1600, 0.16), i * 260);
+  }
+  gesture("g-happy", 1800);
+};
+
+window.startGuess = function () {
+  guessGame = { secret: 1 + Math.floor(Math.random() * 100), tries: 0 };
+  showAnswer("Загадал число от 1 до 100. Пиши догадку — отвечу «больше» или «меньше»." +
+             " Угадаешь — получишь 2 монеты.", false);
+  gesture("g-blink", 400);
+  chirp("ok");
+};
+
+function handleGuess(text) {
+  if (!guessGame) return false;
+  const n = parseInt(text.replace(/[^0-9]/g, ""), 10);
+  if (!n || n < 1 || n > 100) {
+    showAnswer("Нужно число от 1 до 100.", false);
+    return true;
+  }
+  guessGame.tries += 1;
+  if (n === guessGame.secret) {
+    const tries = guessGame.tries;
+    guessGame = null;
+    if (window.addCoins) window.addCoins(2);
+    showAnswer("Угадал! Это " + n + ". Попыток: " + tries + ". Держи 2 монеты.", false);
+    gesture("g-happy", 1400);
+    chirp("ok");
+  } else {
+    showAnswer("Попытка " + guessGame.tries + ": " + (n < guessGame.secret ? "больше." : "меньше.")
+      + " Загадано от 1 до 100.", false);
+    gesture("g-squint", 600);
+  }
+  return true;
+}
+
+window.guessHook = function (text) {
+  try {
+    const api = API();
+    if (api && api.log_js) api.log_js("guess: active=" + !!guessGame + " text=" + text.slice(0, 8));
+  } catch (e) {}
+  if (/угадай\s*число/i.test(text)) { window.startGuess(); return true; }
+  return handleGuess(text);
+};
+
+const SECRETS = {
+  "тим, покажи фокус": "Фокус-покус! Смотри: я моргаю сразу обоими глазами... почти.",
+  "фокус": "Секрет: если покормить меня три раза подряд, я станцую.",
+  "секрет": "Ты нашёл секрет. Я запомню, что ты любопытный.",
+  "позови взрослого": "Эй, взрослые! Тут ребёнок хочет внимания!",
 };
 
 window.resetProgress = function () {
@@ -486,6 +582,44 @@ window.checkUpdate = function () {
   }).catch(() => showAnswer("Не удалось проверить обновления.", false));
 };
 
+function restoreLast(tries) {
+  tries = tries || 0;
+  const api = API();
+  if (!api || !api.last) {
+    if (tries < 40) setTimeout(function () { restoreLast(tries + 1); }, 250);
+    return;
+  }
+  api.last().then((text) => {
+    if (api.log_js) api.log_js("restore: " + (text ? text.length : 0) + " chars");
+    if (!text) return;
+    window.__restored = true;
+    $("bubble-text").textContent = text;
+    const box = $("bubble");
+    box.classList.add("show");
+    box.scrollTop = box.scrollHeight;
+  }).catch(() => {});
+}
+window.addEventListener("pywebviewready", function () { restoreLast(0); });
+setTimeout(function () { restoreLast(0); }, 400);
+
+try {
+  const saved = localStorage.getItem("tim-last-answer");
+  if (saved) {
+    if (!thinking && voiceOn) {
+    const api = API();
+    if (api && api.speak) api.speak(String(text).slice(0, 400)).catch(() => {});
+  }
+  if (thinking) {
+    text = "Алиса думает";
+    window.__restored = false;
+  }
+  const box = $("bubble");
+    $("bubble-text").textContent = saved;
+    box.classList.add("show");
+    box.scrollTop = box.scrollHeight;
+  }
+} catch (e) {}
+
 reportRegions();
 setTimeout(reportRegions, 800);
 setTimeout(reportRegions, 2500);
@@ -508,6 +642,7 @@ function boot() {
   scheduleFace();
   idleTalk();
   setTimeout(() => {
+    if (window.__restored) return;
     showAnswer("Привет, друг! Я на связи.", false);
     gesture("g-happy", 1200);
     chirp("think");

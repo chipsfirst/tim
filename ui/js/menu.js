@@ -129,6 +129,14 @@
 
   document.addEventListener("click", function (e) {
     if (!e.target.closest) return;
+    var chip = e.target.closest("[data-ask]");
+    if (chip) {
+      e.stopPropagation();
+      var box = document.getElementById("q");
+      box.value = chip.dataset.ask;
+      if (typeof window.ask === "function") window.ask();
+      return;
+    }
     if (e.target.closest("#tx")) {
       e.stopPropagation();
       if (window.TIM && TIM.tetris) TIM.tetris.close();

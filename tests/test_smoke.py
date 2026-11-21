@@ -75,6 +75,19 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(main.LOOP_CFG.get("tick_ms"), 100)
 
 
+class AliceTest(unittest.TestCase):
+    def test_read_limit(self):
+        self.assertIn("t.slice(0, 10000)", main.READ_JS)
+
+    def test_echo_guard_present(self):
+        src = read("main.py")
+        self.assertIn("echo = now.strip().lower().startswith(probe)", src,
+                      "ответ-эхо снова может попасть в интерфейс")
+
+    def test_answer_logged(self):
+        self.assertIn("answer: %d chars", read("main.py"))
+
+
 class MenuTest(unittest.TestCase):
     """Пункты меню объявлены в реестре и все ведут на вызываемый код."""
 

@@ -6,11 +6,30 @@ let histPos = -1;
 async function ask() {
   let text = $("q").value.trim();
   if (/^(погода|weather)\s*$/i.test(text)) { text = ""; $("q").value = ""; runQuick("weather"); return; }
-  if (!text || busy) return;
+  if (!text) return;
+  try {
+    const dbg = API();
+    if (dbg && dbg.log_js) dbg.log_js("ask: busy=" + busy + " hook=" + (typeof window.guessHook));
+  } catch (e) {}
+  try {
+    if (typeof window.guessHook === "function" && window.guessHook(text)) {
+      $("q").value = "";
+      return;
+    }
+  } catch (err) { /* игра не должна ломать вопросы */ }
+  if (busy) return;
   history.push(text);
   histPos = history.length;
   busy = true;
-  $("send").disabled = true;
+  clearTimeout(window.__busyGuard);
+  window.__busyGuard = setTimeout(function () {
+    if (busy) {
+      busy = false;
+      const send = $("send");
+      if (send) send.disabled = false;
+    }
+  }, 60000);
+  if ($("send")) $("send").disabled = true;
   gesture("g-think", 60000);
   chirp("think");
   showAnswer("…", true);
@@ -39,6 +58,6 @@ async function ask() {
   gesture("g-happy", 900);
   chirp("ok");
   $("q").value = "";
-  $("send").disabled = false;
+  if ($("send")) $("send").disabled = false;
   busy = false;
 }

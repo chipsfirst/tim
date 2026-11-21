@@ -7,6 +7,7 @@
 
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -33,7 +34,7 @@ READ_JS = """
   var nodes = document.querySelectorAll('[class*="message"], [class*="Message"], [data-testid*="message"], [class*="reply"], [class*="answer"]');
   for (var i = nodes.length - 1; i >= 0; i--) {
     var t = (nodes[i].innerText || "").replace(/\\s+/g, " ").trim();
-    if (t.length >= 12) return t.slice(0, 900);
+    if (t.length >= 12) return t.slice(0, 10000);
   }
   return "";
 })()
@@ -199,7 +200,9 @@ class Api:
 
     def ask(self, text):
         log("ask from ui: %r" % (text or "")[:40])
-        return self.bot.ask_alice(text)
+        answer = self.bot.ask_alice(text)
+        log("answer: %d chars: %r" % (len(answer or ""), (answer or "")[:80]))
+        return answer
 
     def login(self):
         log("login pressed")
@@ -207,6 +210,32 @@ class Api:
 
     def load_stats(self):
         return read_state()
+
+    def speak(self, text):
+        log("speak called: %d chars" % len(str(text or "")))
+        phrase = str(text or "").strip()[:400]
+        if not phrase:
+            return False
+        try:
+            if sys.platform == "darwin":
+                subprocess.run(["say", "-v", "Milena", phrase], check=False, timeout=40)
+            elif sys.platform == "win32":
+                subprocess.run(["powershell", "-NoProfile", "-Command",
+                                "Add-Type -AssemblyName System.Speech;"
+                                "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('%s')"
+                                % phrase.replace("'", " ")], check=False, timeout=40)
+            log("speak done")
+            return True
+        except Exception as exc:
+            guard("speak", exc)
+            return False
+
+    def save_last(self, text):
+        self.bot.last_answer = str(text or "")[:12000]
+        return True
+
+    def last(self):
+        return getattr(self.bot, "last_answer", "")
 
     def save_stats(self, data):
         return write_state(data if isinstance(data, dict) else {})
@@ -493,13 +522,15 @@ class Bot:
                     return "Не нашёл поле ввода. Откройте окно Алисы и войдите в аккаунт."
                 last = ""
                 stable = 0
+                probe = text.strip().lower()[:24]
                 for _ in range(60):
                     time.sleep(0.5)
                     try:
                         now = win.evaluate_js(READ_JS) or ""
                     except Exception:
                         now = ""
-                    if now and now != before:
+                    echo = now.strip().lower().startswith(probe)
+                    if now and now != before and not echo:
                         if now == last:
                             stable += 1
                             if stable >= 3:

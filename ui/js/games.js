@@ -16,6 +16,7 @@
     var b = document.getElementById("tx"); if (b) b.style.display = "none";
   }
   function open() { if (window.TIM && TIM.tetris) TIM.tetris.close(); c.classList.add("on");
+    if (window.addCoins) window.addCoins(1);
     var b = document.getElementById("tx"); if (b) b.style.display = "block"; }
 
   /* ------------------------------ крестики-нолики */

@@ -77,6 +77,7 @@
     score = 0; over = false;
     spawn();
     c.classList.add("on");
+    if (window.addCoins) window.addCoins(1);
     var b = document.getElementById("tx"); if (b) b.style.display = "block";
     stop();
     timer = setInterval(step, 450);

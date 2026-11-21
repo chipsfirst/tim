@@ -1,10 +1,7 @@
 // Показатели RPG: батарея, здоровье, сон.
 
-const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0, unlocked: 1, days: {}, log: [] };
-try {
-  const saved = JSON.parse(localStorage.getItem("tim-stats") || "null");
-  if (saved) for (const k in STATS) if (typeof saved[k] === "number") STATS[k] = saved[k];
-} catch (e) {}
+const STATS = { batt: 100, hp: 100, sleep: 100, xp: 0, unlocked: 1, days: {}, log: [], coins: 0 };
+// Значения приходят из state.json (см. loadFromDisk).
 
 const warned = { batt: false, hp: false, sleep: false };
 
@@ -26,7 +23,7 @@ function paintStats() {
 }
 
 function saveStats() {
-  try { localStorage.setItem("tim-stats", JSON.stringify(STATS)); } catch (e) {}
+  // Единственный источник — state.json; localStorage больше не используется.
 }
 
 function statReport() {
@@ -85,7 +82,7 @@ function saveToDisk() {
   if (!api || !api.save_stats) return;
   api.save_stats({
     batt: STATS.batt, hp: STATS.hp, sleep: STATS.sleep,
-    xp: STATS.xp, unlocked: STATS.unlocked, days: STATS.days,
+    xp: STATS.xp, unlocked: STATS.unlocked, days: STATS.days, coins: STATS.coins || 0,
     log: (STATS.log || []).slice(-20),
   }).catch(() => {});
 }
@@ -170,7 +167,7 @@ window.charge = function () {
     bump("batt", 100);
     bump("hp", 8);
     paintStats(); saveStats();
-    showAnswer("Заряжен на сто процентов.", false);
+    showAnswer("Заряжен на сто процентов." + window.stateLine(), false);
     gesture("g-happy", 1200);
   }, 2600);
 };
@@ -194,13 +191,57 @@ function lastTalks() {
   }).join("\n");
 }
 
+var SHOP = [
+  { id: "green", label: "Зелёная", price: 0, cls: "" },
+  { id: "blue", label: "Синяя", price: 10, cls: "theme-blue" },
+  { id: "red", label: "Красная", price: 15, cls: "theme-red" },
+  { id: "gold", label: "Золотая", price: 25, cls: "theme-gold" },
+];
+
+window.applyTheme = function (id) {
+  SHOP.forEach(function (t) { if (t.cls) document.body.classList.remove(t.cls); });
+  var item = SHOP.filter(function (t) { return t.id === id; })[0] || SHOP[0];
+  if (item.cls) document.body.classList.add(item.cls);
+  STATS.theme = item.id;
+};
+
+window.buyTheme = function (id) {
+  var item = SHOP.filter(function (t) { return t.id === id; })[0];
+  if (!item) return;
+  if (STATS.theme === id) { showAnswer("Этот цвет уже стоит.", false); return; }
+  if ((STATS.coins || 0) < item.price) {
+    showAnswer("Не хватает монет: нужно " + item.price + ", у тебя " + (STATS.coins || 0) + ".", false);
+    return;
+  }
+  STATS.coins -= item.price;
+  window.applyTheme(id);
+  saveToDisk();
+  paintBar();
+  showAnswer("Готово! Теперь я " + item.label.toLowerCase() + ".", false);
+  chirp("ok");
+};
+
+window.SHOP = SHOP;
+
+window.stateLine = function () {
+  return " ⚡" + Math.round(STATS.batt) + " ♥" + Math.round(STATS.hp) + " ☾" + Math.round(STATS.sleep);
+};
+
+window.addCoins = function (n) {
+  STATS.coins = (STATS.coins || 0) + (n || 1);
+  paintBar();
+  saveToDisk();
+};
+
 window.paintBar = function () {
   const el = document.getElementById("bar-text");
   if (!el) return;
   el.textContent = "Т.И.М. · ур." + level() +
     " · ⚡" + Math.round(STATS.batt) +
     " ♥" + Math.round(STATS.hp) +
-    " ☾" + Math.round(STATS.sleep);
+    " ☾" + Math.round(STATS.sleep) +
+    " · 🪙" + (STATS.coins || 0);
 };
 setInterval(window.paintBar, 2000);
 window.paintBar();
+if (STATS.theme) window.applyTheme(STATS.theme);
