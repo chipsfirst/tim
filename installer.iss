@@ -1,4 +1,4 @@
-[Setup]
+﻿[Setup]
 AppName=Т.И.М.
 AppVersion=0.10.0
 DefaultDirName={autopf}\TIM

@@ -75,7 +75,7 @@ function showAnswer(text, thinking) {
   try {
     const api = API();
     if (api && api.save_last) api.save_last(String(text || "").slice(0, 12000));
-    if (api && api.log_js) api.log_js("save_last: " + String(text || "").length + " chars");
+    if (api && api.log_js) api.log_js("save_last: " + String(text || "").length + " chars", "", 0, "info");
   } catch (e) {}
   if (!thinking && voiceOn) {
     const api = API();
@@ -554,7 +554,7 @@ function handleGuess(text) {
 window.guessHook = function (text) {
   try {
     const api = API();
-    if (api && api.log_js) api.log_js("guess: active=" + !!guessGame + " text=" + text.slice(0, 8));
+    if (api && api.log_js) api.log_js("guess: active=" + !!guessGame + " text=" + text.slice(0, 8), "", 0, "info");
   } catch (e) {}
   if (/угадай\s*число/i.test(text)) { window.startGuess(); return true; }
   return handleGuess(text);
@@ -599,7 +599,7 @@ function restoreLast(tries) {
     return;
   }
   api.last().then((text) => {
-    if (api.log_js) api.log_js("restore: " + (text ? text.length : 0) + " chars");
+    if (api.log_js) api.log_js("restore: " + (text ? text.length : 0) + " chars", "", 0, "info");
     if (!text) return;
     window.__restored = true;
     $("bubble-text").textContent = text;

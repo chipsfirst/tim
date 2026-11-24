@@ -115,5 +115,19 @@ class MenuTest(unittest.TestCase):
         self.assertNotIn("<script>", read("ui/index.html"))
 
 
+class ApiTest(unittest.TestCase):
+    """pywebview обходит публичные атрибуты js_api рекурсией, поэтому данные
+    там обязаны быть приватными: иначе он уходит в .NET-объекты окна и мост
+    между страницей и Python не поднимается."""
+
+    def test_js_api_exposes_only_methods(self):
+        api = main.Api(object())
+        exposed = [name for name in dir(api) if not name.startswith("_")]
+        self.assertTrue(exposed, "js_api без методов")
+        for name in exposed:
+            self.assertTrue(callable(getattr(api, name)),
+                            "js_api: %s — не метод" % name)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

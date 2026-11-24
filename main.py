@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -111,20 +112,38 @@ def load_config():
         return {}
 
 
+# Текст идёт файлом через переменную окружения: подстановка фразы в командную
+# строку ломалась на апострофах и кавычках.
+SPEAK_SCRIPT = (
+    "Add-Type -AssemblyName System.Speech;"
+    "$t = Get-Content -Raw -Encoding UTF8 -LiteralPath $env:TIM_SAY_FILE;"
+    "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak($t)"
+)
+
+
+def speak_windows(phrase):
+    fd, path = tempfile.mkstemp(prefix="tim-say-", suffix=".txt")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(phrase)
+        done = subprocess.run(["powershell", "-NoProfile", "-Command", SPEAK_SCRIPT],
+                              check=False, timeout=40,
+                              env=dict(os.environ, TIM_SAY_FILE=path))
+        if done.returncode != 0:
+            raise RuntimeError("powershell вернул %d" % done.returncode)
+    finally:
+        try:
+            os.remove(path)
+        except OSError as exc:
+            log("say cleanup: %r" % exc, "warn")
+
+
 CONFIG = load_config()
 WINDOW_CFG = CONFIG.get("window", {})
 LOOP_CFG = CONFIG.get("loop", {})
 
 WIN_W = int(WINDOW_CFG.get("width", 340))
 WIN_H = int(WINDOW_CFG.get("height", 500))
-
-CONFIG = load_config()
-WINDOW_CFG = CONFIG.get("window", {})
-LOOP_CFG = CONFIG.get("loop", {})
-
-WIN_W = int(WINDOW_CFG.get("width", 340))
-WIN_H = int(WINDOW_CFG.get("height", 500))
-
 
 
 def state_path():
@@ -220,10 +239,7 @@ class Api:
             if sys.platform == "darwin":
                 subprocess.run(["say", "-v", "Milena", phrase], check=False, timeout=40)
             elif sys.platform == "win32":
-                subprocess.run(["powershell", "-NoProfile", "-Command",
-                                "Add-Type -AssemblyName System.Speech;"
-                                "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('%s')"
-                                % phrase.replace("'", " ")], check=False, timeout=40)
+                speak_windows(phrase)
             log("speak done")
             return True
         except Exception as exc:
@@ -267,8 +283,10 @@ class Api:
     def check_update(self):
         return latest_tag()
 
-    def log_js(self, message, source="", line=0):
-        level = "info" if str(message).startswith("wide click") else "error"
+    def log_js(self, message, source="", line=0, level="error"):
+        # Уровень приходит со страницы: обычные отметки не должны шуметь как ошибки.
+        if level not in ("info", "warn", "error"):
+            level = "error"
         log("js: %s (%s:%s)" % (str(message)[:400], source, line), level)
         return True
 
@@ -594,6 +612,12 @@ def install_autostart():
 
 
 def main():
+    if sys.platform == "win32":
+        import win_backend
+
+        if win_backend.already_running():
+            log("уже запущен — второй экземпляр не нужен")
+            return
     plat.setup()
     try:
         _run()

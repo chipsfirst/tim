@@ -9,7 +9,7 @@ async function ask() {
   if (!text) return;
   try {
     const dbg = API();
-    if (dbg && dbg.log_js) dbg.log_js("ask: busy=" + busy + " hook=" + (typeof window.guessHook));
+    if (dbg && dbg.log_js) dbg.log_js("ask: busy=" + busy + " hook=" + (typeof window.guessHook), "", 0, "info");
   } catch (e) {}
   try {
     if (typeof window.guessHook === "function" && window.guessHook(text)) {

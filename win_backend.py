@@ -12,6 +12,11 @@ import time
 from ctypes import wintypes
 
 user32 = ctypes.windll.user32
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+ERROR_ALREADY_EXISTS = 183
+MUTEX_NAME = "TIM-screen-companion"
+_mutex = None  # держим хэндл: с его закрытием мьютекс освобождается
 
 SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
@@ -206,6 +211,21 @@ def start_hotkey(bot):
             bot.log("win hotkey failed: %r" % exc)
 
     threading.Thread(target=run, daemon=True).start()
+
+
+def already_running():
+    """Второй экземпляр не нужен: два робота, два трея и отнятый хоткей."""
+    global _mutex
+    try:
+        handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+        if not handle:
+            return False
+        if ctypes.get_last_error() == ERROR_ALREADY_EXISTS:
+            return True
+        _mutex = handle
+        return False
+    except Exception:
+        return False
 
 
 def install_autostart():

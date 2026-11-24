@@ -163,7 +163,7 @@
     if (!key) return;
     e.stopPropagation();
     var api = window.pywebview && window.pywebview.api;
-    if (api && api.log_js) api.log_js("wide click (delegated)");
+    if (api && api.log_js) api.log_js("wide click (delegated)", "", 0, "info");
     if (typeof window.toggleWide === "function") window.toggleWide();
   });
 
