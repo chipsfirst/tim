@@ -227,6 +227,12 @@ class Api:
         log("login pressed")
         return "opened" if self._bot.show_alice() else "failed"
 
+    def cancel(self):
+        """Прерывает ожидание ответа: цикл в ask_alice увидит флаг и выйдет."""
+        self._bot.cancel_ask = True
+        log("cancel pressed")
+        return True
+
     def load_stats(self):
         return read_state()
 
@@ -302,6 +308,7 @@ class Bot:
         self.stop_flag = False
 
         self.regions = {"robot": None, "panel": None, "extra": []}
+        self.shape_dirty = True
         self.hover = False
         self.panel_open = False
         self.menu_open = False
@@ -312,6 +319,7 @@ class Bot:
 
         self.alice = None
         self.alice_lock = threading.Lock()
+        self.cancel_ask = False
         self.btn_sound = True
 
         self.dragging = False
@@ -414,6 +422,7 @@ class Bot:
         self.regions["robot"] = robot
         self.regions["panel"] = panel
         self.regions["extra"] = extra if isinstance(extra, list) else []
+        self.shape_dirty = True
 
     def cursor(self):
         return plat.cursor()
@@ -534,6 +543,7 @@ class Bot:
         if not text:
             return ""
         with self.alice_lock:
+            self.cancel_ask = False
             win = self.ensure_alice()
             if win is None:
                 return "Не удалось открыть окно Алисы."
@@ -552,6 +562,10 @@ class Bot:
                 probe = text.strip().lower()[:24]
                 for _ in range(60):
                     time.sleep(0.5)
+                    if self.cancel_ask:
+                        self.cancel_ask = False
+                        log("ask cancelled")
+                        return ""
                     try:
                         now = win.evaluate_js(READ_JS) or ""
                     except Exception:

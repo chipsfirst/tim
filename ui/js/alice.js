@@ -3,6 +3,27 @@
 let history = [];
 let histPos = -1;
 
+function setAskBusy(on) {
+  busy = on;
+  const send = $("send");
+  if (send) send.textContent = on ? "■" : "→";
+  if (!on) document.body.classList.remove("g-think");
+}
+
+/* Пока ждём ответ, кнопка отправки превращается в «стоп»: 45 секунд
+   молчания — слишком долго, чтобы их нельзя было прервать. */
+function cancelAsk() {
+  if (!busy) return false;
+  const a = API();
+  if (a && a.cancel) {
+    try { a.cancel(); } catch (e) { /* ответ всё равно уже не нужен */ }
+  }
+  clearTimeout(window.__busyGuard);
+  setAskBusy(false);
+  showAnswer("Хорошо, отменил.", false);
+  return true;
+}
+
 async function ask() {
   let text = $("q").value.trim();
   if (/^(погода|weather)\s*$/i.test(text)) { text = ""; $("q").value = ""; runQuick("weather"); return; }
@@ -20,16 +41,9 @@ async function ask() {
   if (busy) return;
   history.push(text);
   histPos = history.length;
-  busy = true;
+  setAskBusy(true);
   clearTimeout(window.__busyGuard);
-  window.__busyGuard = setTimeout(function () {
-    if (busy) {
-      busy = false;
-      const send = $("send");
-      if (send) send.disabled = false;
-    }
-  }, 60000);
-  if ($("send")) $("send").disabled = true;
+  window.__busyGuard = setTimeout(function () { if (busy) setAskBusy(false); }, 60000);
   gesture("g-think", 60000);
   chirp("think");
   showAnswer("…", true);
@@ -50,7 +64,7 @@ async function ask() {
     }
   }
 
-  document.body.classList.remove("g-think");
+  if (!busy) return; // отменили, пока ждали — ответ уже не показываем
   if (typeof window.rememberExchange === "function") {
     window.rememberExchange(text, answer || "");
   }
@@ -58,6 +72,14 @@ async function ask() {
   gesture("g-happy", 900);
   chirp("ok");
   $("q").value = "";
-  if ($("send")) $("send").disabled = false;
-  busy = false;
+  setAskBusy(false);
 }
+
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  const menu = document.getElementById("menu");
+  if (menu && menu.classList.contains("on")) return; // меню закрывается само
+  if (cancelAsk()) { e.preventDefault(); return; }
+  if ($("q").value) { $("q").value = ""; return; }
+  if (panelOpen) setPanel(false);
+});

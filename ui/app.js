@@ -29,17 +29,16 @@ function setPanel(open) {
   $("bubble").classList.toggle("show", open || !!$("bubble-text").textContent.trim());
   const a = API();
   if (a && a.set_panel) a.set_panel(open);
-  reportRegions();
+  reportRegionsSoon();
   if (open) setTimeout(() => $("q").focus(), 140);
 }
 
 function onHover(value) {
   if (value === hover) return;
   hover = value;
-  if (value) {
-    clearTimeout(hideTimer);
-    setPanel(true);
-  } else {
+  // Наведение больше не открывает ввод: окно всегда поверх, и панель
+  // выскакивала от простого проезда мышью. Открывает клик по монитору.
+  if (!value) {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(() => {
       if (!hover && document.activeElement !== $("q") && !$("q").value) setPanel(false);
@@ -87,6 +86,7 @@ function showAnswer(text, thinking) {
   }
   const box = $("bubble");
   box.scrollTop = box.scrollHeight;
+  reportRegions();
 }
 
 /* ---------------------------------------------- реплики в простое */
@@ -123,7 +123,7 @@ function idleTalk() {
       gesture("g-happy", 900);
       chirp();
       setTimeout(() => {
-        if (!busy) $("bubble").classList.remove("show");
+        if (!busy) { $("bubble").classList.remove("show"); reportRegions(); }
       }, 9000);
     }
     idleTalk();
@@ -209,12 +209,20 @@ function reportRegions() {
   const extra = [
     rectOf($("menu"), "on"),
     rectOf($("bubble"), "show"),
+    rectOf(document.querySelector(".keys")),  // клавиши вне корпуса, но видны
   ].filter(Boolean);
   a.set_regions(
     { x: r.left, y: r.top, w: r.width, h: r.height },
     { x: p.left, y: p.top, w: p.width, h: p.height },
     extra
   );
+}
+
+// Окно обрезается по зонам, а панель ввода раскрывается анимацией:
+// мерим ещё раз, когда она доиграла, иначе край облачка срезается.
+function reportRegionsSoon() {
+  reportRegions();
+  setTimeout(reportRegions, 260);
 }
 
 /* ---------------------------------------------- железо и игра */
@@ -309,10 +317,6 @@ if (floppyEl) {
   });
 }
 
-$("robot").addEventListener("click", (e) => {
-  if (gameClick()) e.stopPropagation();
-}, true);
-
 const gameChip = document.querySelector('[data-q="game"]');
 if (gameChip) gameChip.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -323,7 +327,10 @@ modemLoop();
 
 /* ---------------------------------------------- события */
 
-$("send").addEventListener("click", ask);
+$("send").addEventListener("click", () => {
+  if (busy) cancelAsk();
+  else ask();
+});
 
 $("q").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); ask(); return; }
@@ -370,11 +377,19 @@ document.querySelectorAll("#chips button").forEach((btn) => {
   });
 });
 
-$("robot").addEventListener("click", () => {
-  const g = GESTURES[Math.floor(Math.random() * GESTURES.length)];
-  gesture(g[0], g[1]);
-  chirp();
-});
+// Клик по монитору — жест, писк и поле ввода. Кнопки внутри корпуса
+// (подсказки, клавиши, меню) обрабатывают себя сами.
+const deviceEl = document.querySelector(".device");
+if (deviceEl) {
+  deviceEl.addEventListener("click", (e) => {
+    if (e.target.closest("button")) return;
+    if (gameClick()) return;
+    const g = GESTURES[Math.floor(Math.random() * GESTURES.length)];
+    gesture(g[0], g[1]);
+    chirp();
+    setPanel(true);
+  });
+}
 
 window.addEventListener("blur", () => {
   if (!hover && !$("q").value) setPanel(false);
@@ -606,6 +621,7 @@ function restoreLast(tries) {
     const box = $("bubble");
     box.classList.add("show");
     box.scrollTop = box.scrollHeight;
+    reportRegions();
   }).catch(() => {});
 }
 window.addEventListener("pywebviewready", function () { restoreLast(0); });
@@ -656,7 +672,7 @@ function boot() {
     gesture("g-happy", 1200);
     chirp("think");
     setTimeout(() => {
-      if (!busy) $("bubble").classList.remove("show");
+      if (!busy) { $("bubble").classList.remove("show"); reportRegions(); }
     }, 7000);
   }, 1500);
 }
