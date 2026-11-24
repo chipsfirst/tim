@@ -186,27 +186,27 @@ def latest_tag():
 
 class Api:
     def __init__(self, bot):
-        self.bot = bot
+        self._bot = bot
 
     def ready(self):
-        self.bot.on_ready()
+        self._bot.on_ready()
 
     def set_regions(self, robot, panel, extra=None):
-        self.bot.set_regions(robot, panel, extra)
+        self._bot.set_regions(robot, panel, extra)
 
     def set_panel(self, is_open):
-        self.bot.panel_open = bool(is_open)
-        self.bot.ignore_state = None
+        self._bot.panel_open = bool(is_open)
+        self._bot.ignore_state = None
 
     def ask(self, text):
         log("ask from ui: %r" % (text or "")[:40])
-        answer = self.bot.ask_alice(text)
+        answer = self._bot.ask_alice(text)
         log("answer: %d chars: %r" % (len(answer or ""), (answer or "")[:80]))
         return answer
 
     def login(self):
         log("login pressed")
-        return "opened" if self.bot.show_alice() else "failed"
+        return "opened" if self._bot.show_alice() else "failed"
 
     def load_stats(self):
         return read_state()
@@ -231,18 +231,18 @@ class Api:
             return False
 
     def save_last(self, text):
-        self.bot.last_answer = str(text or "")[:12000]
+        self._bot.last_answer = str(text or "")[:12000]
         return True
 
     def last(self):
-        return getattr(self.bot, "last_answer", "")
+        return getattr(self._bot, "last_answer", "")
 
     def save_stats(self, data):
         return write_state(data if isinstance(data, dict) else {})
 
     def toggle_expand(self):
         log("toggle_expand called")
-        bot = self.bot
+        bot = self._bot
         bot.expanded = not getattr(bot, "expanded", False)
         w, h = (WIN_W + 180, WIN_H + 220) if bot.expanded else (WIN_W, WIN_H)
         log("resize -> %dx%d" % (w, h))
@@ -273,7 +273,7 @@ class Api:
         return True
 
     def quit(self):
-        self.bot.quit()
+        self._bot.quit()
 
 
 class Bot:
@@ -327,8 +327,17 @@ class Bot:
             guard("place", exc)
 
     def on_ready(self):
+        # Событие loaded и вызов api.ready() из страницы приходят оба —
+        # без флага поднимаются два трея и два потока перетаскивания.
+        if self.ready:
+            return
         self.ready = True
         self.place()
+        try:
+            log("inner size %s" % self.win.evaluate_js(
+                "window.innerWidth + 'x' + window.innerHeight"))
+        except Exception as exc:
+            guard("inner size", exc)
         plat.start_drag(self)
         if sys.platform == "win32":
             import win_backend

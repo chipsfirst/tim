@@ -107,7 +107,7 @@
       x.fillRect(2, py, 4, ph);
       x.fillRect(W - 6, ay, 4, ph);
       x.fillRect(bx, by, 4, 4);
-      x.font = "10px monospace"; x.fillStyle = "#3CFF86";
+      x.font = "12px monospace"; x.fillStyle = "#3CFF86";
       x.fillText(String(score), 6, 12);
       x.fillStyle = "#2A5A3A";
       x.fillText("Esc — выйти", W - 74, 12);
@@ -168,7 +168,7 @@
       for (var gx = (t * 4) % 24; gx < W; gx += 24) {
         x.fillRect(gx, gy + 20, 8, 2);
       }
-      x.fillStyle = "#FFFFFF"; x.font = "10px monospace";
+      x.fillStyle = "#FFFFFF"; x.font = "12px monospace";
       x.fillText(dead ? "GAME OVER — R: заново, Esc: выйти" : "SCORE " + score, 6, 12);
     }, 33);
   }

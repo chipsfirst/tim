@@ -14,6 +14,7 @@ from ctypes import wintypes
 user32 = ctypes.windll.user32
 
 SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
 SWP_NOACTIVATE = 0x0010
 SWP_SHOWWINDOW = 0x0040
 HWND_TOPMOST = -1

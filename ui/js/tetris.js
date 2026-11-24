@@ -62,7 +62,7 @@
         if (v && py + y >= 0) x.fillRect(OX + (px + xx) * S, OY + (py + y) * S, S - 1, S - 1);
       });
     });
-    x.fillStyle = "#66FF9E"; x.font = "10px monospace";
+    x.fillStyle = "#66FF9E"; x.font = "12px monospace";
     x.fillText(over ? "GAME OVER" : "SCORE " + score, 4, 12);
     x.strokeStyle = "#2A5A3A"; x.strokeRect(OX - 1, OY - 1, W * S + 2, H * S + 2);
   }

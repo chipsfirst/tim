@@ -25,6 +25,8 @@ let hideTimer = null;
 function setPanel(open) {
   panelOpen = open;
   $("panel").classList.toggle("show", open);
+  // Поле ввода живёт в облачке — наведению нужно и его тоже показать.
+  $("bubble").classList.toggle("show", open || !!$("bubble-text").textContent.trim());
   const a = API();
   if (a && a.set_panel) a.set_panel(open);
   reportRegions();
@@ -474,9 +476,16 @@ window.toggleWide = function () {
   const api = API();
   const next = !document.body.classList.contains("wide");
   document.body.classList.toggle("wide", next);
+  // На Windows окно не растягиваем: после смены размера прозрачность теряется
+  // и по краям остаётся белая подложка. Место для ответа даёт сама вёрстка.
+  if (/Win/i.test(navigator.platform || "")) {
+    reportRegions();
+    return;
+  }
   if (!api || !api.toggle_expand) return;
   api.toggle_expand().then((r) => {
     if (!r || !r.ok) return;
+    reportRegions();
   }).catch((e) => showAnswer("Ошибка режима: " + e, false));
 };
 

@@ -71,7 +71,10 @@ class ConfigTest(unittest.TestCase):
         self.assertGreater(cfg["stats"]["tick_ms"], 1000)
 
     def test_python_uses_config(self):
-        self.assertEqual(main.WIN_W, 300)
+        import json
+
+        cfg = json.loads(read("ui/config.json"))
+        self.assertEqual(main.WIN_W, cfg["window"]["width"])
         self.assertEqual(main.LOOP_CFG.get("tick_ms"), 100)
 
 
