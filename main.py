@@ -7,9 +7,9 @@
 
 import json
 import os
+import random
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 
@@ -29,6 +29,9 @@ else:
           "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
 BLOCKED_JS = "(document.body && document.body.innerText || '').slice(0, 600)"
+READ_TAIL_JS = "(document.body && document.body.innerText || '').slice(-3000)"
+# Служебные строки интерфейса, которые попадают в хвост страницы.
+UI_MARKERS = ("Спросите о чём", "Хороший ответ", "Плохой ответ", "Выключить звук", "Интеллект:", "Алиса старается", "Настройки", "Новый чат", "Студия", "Для учёбы")
 
 READ_JS = """
 (function () {
@@ -112,38 +115,54 @@ def load_config():
         return {}
 
 
-# Текст идёт файлом через переменную окружения: подстановка фразы в командную
-# строку ломалась на апострофах и кавычках.
-SPEAK_SCRIPT = (
-    "Add-Type -AssemblyName System.Speech;"
-    "$t = Get-Content -Raw -Encoding UTF8 -LiteralPath $env:TIM_SAY_FILE;"
-    "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak($t)"
-)
-
-
-def speak_windows(phrase):
-    fd, path = tempfile.mkstemp(prefix="tim-say-", suffix=".txt")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(phrase)
-        done = subprocess.run(["powershell", "-NoProfile", "-Command", SPEAK_SCRIPT],
-                              check=False, timeout=40,
-                              env=dict(os.environ, TIM_SAY_FILE=path))
-        if done.returncode != 0:
-            raise RuntimeError("powershell вернул %d" % done.returncode)
-    finally:
-        try:
-            os.remove(path)
-        except OSError as exc:
-            log("say cleanup: %r" % exc, "warn")
-
-
 CONFIG = load_config()
 WINDOW_CFG = CONFIG.get("window", {})
 LOOP_CFG = CONFIG.get("loop", {})
 
 WIN_W = int(WINDOW_CFG.get("width", 340))
 WIN_H = int(WINDOW_CFG.get("height", 500))
+
+# Облачко — отдельное окно над монитором: тело и хвостик, 14px внизу.
+CLOUD_W = 340
+CLOUD_H = 240
+CLOUD_TAIL = 0
+
+# Кормление даёт монету, поэтому не чаще раза в 10 минут.
+FEED_COOLDOWN = 600
+# Зарядка: батарея садится, её надо поднимать.
+CHARGE_COOLDOWN = 180
+
+# Сброс ожидания корма или зарядки за монеты.
+RESET_COST = 2
+
+# Лавка: что можно купить и сколько это стоит.
+SHOP = {"hat": 15, "glasses": 10, "scarf": 8}
+
+# Робот время от времени говорит сам — мотивация и всякая чепуха.
+PHRASES = (
+    "Отдохни минуту. Я послежу за курсором.",
+    "Ты сегодня уже лучше, чем вчера. Я проверял.",
+    "Если задача не идёт — она просто не знает, кто здесь главный.",
+    "Сделай глоток воды. Ну пожалуйста.",
+    "Я верю в тебя. У меня, правда, нет выбора — я же твой робот.",
+    "Пять минут без экрана — и мысли встанут на место.",
+    "Помни: идеальный код — это код, который не пришлось писать.",
+    "Ты не обязан быть продуктивным каждую секунду.",
+    "Сложное делится на маленькое. Я проверял на себе.",
+    "Небольшой перерыв — это часть работы, а не отговорка.",
+    "Сегодня отличный день, чтобы сделать одну маленькую вещь.",
+    "Ошибки — это просто карта того, что уже проверено.",
+    "Раз я стою ровно — значит, и у тебя всё получится.",
+    "У меня 100% батареи и полная уверенность в тебе.",
+    "Если что — я всегда на рабочем столе. Почти буквально.",
+    "Чай остынет. Это я намекаю.",
+    "Даже роботы иногда просто смотрят в стену. Мигаю.",
+    "Ты держишься лучше, чем выглядит со стороны.",
+    "Начни с самого маленького шага. Дальше пойдёт.",
+    "Порядок в папках — порядок в голове. Шутка. Почти.",
+    "Я умею хранить секреты. Правда, до перезагрузки.",
+    "Прямо сейчас кто-то застрял на той же задаче. Ты не один.",
+)
 
 
 def state_path():
@@ -219,9 +238,31 @@ class Api:
 
     def ask(self, text):
         log("ask from ui: %r" % (text or "")[:40])
-        answer = self._bot.ask_alice(text)
+        bot = self._bot
+        bot.set_face("think")
+        bot.asking = True
+        try:
+            answer = bot.ask_alice(text)
+        finally:
+            bot.asking = False
         log("answer: %d chars: %r" % (len(answer or ""), (answer or "")[:80]))
+        bot.set_face("happy" if answer else "dizzy")
+        threading.Timer(1.8, lambda: bot.set_face("idle")).start()
+        if answer and not answer.startswith("Нужно войти"):
+            bot.add_coins(1)
         return answer
+
+    def sleep(self):
+        """Усыпляет робота: ближайший клик по нему разбудит."""
+        self._bot.set_face("sleep")
+        log("sleep requested")
+        return True
+
+    def sound_state(self):
+        return bool(self._bot.sound)
+
+    def sound_toggle(self):
+        return self._bot.toggle_sound()
 
     def login(self):
         log("login pressed")
@@ -233,24 +274,51 @@ class Api:
         log("cancel pressed")
         return True
 
+    def say(self, text, thinking=0):
+        """Показывает ответ в окне-облачке — страница монитора текст не рисует."""
+        return self._bot.show_cloud(text, bool(thinking))
+
+    def hide_cloud(self):
+        return self._bot.hide_cloud()
+
+    def cloud_ready(self):
+        """Страница облачка загрузилась позже ответа — отдаём текст заново."""
+        if self._bot.cloud_visible and self._bot.cloud_text:
+            return self._bot.show_cloud(self._bot.cloud_text, self._bot.cloud_thinking)
+        return True
+
     def load_stats(self):
         return read_state()
 
-    def speak(self, text):
-        log("speak called: %d chars" % len(str(text or "")))
-        phrase = str(text or "").strip()[:400]
-        if not phrase:
-            return False
-        try:
-            if sys.platform == "darwin":
-                subprocess.run(["say", "-v", "Milena", phrase], check=False, timeout=40)
-            elif sys.platform == "win32":
-                speak_windows(phrase)
-            log("speak done")
-            return True
-        except Exception as exc:
-            guard("speak", exc)
-            return False
+    def stats(self):
+        return self._bot.public_stats()
+
+    def feed(self):
+        log("feed pressed")
+        return self._bot.feed()
+
+    def charge(self):
+        log("charge pressed")
+        return self._bot.charge()
+
+    def dance(self):
+        log("dance pressed")
+        return self._bot.dance()
+
+    def fly(self):
+        log("fly pressed")
+        return self._bot.toggle_fly()
+
+    def add_coins(self, n=1):
+        """Монеты за игры: страница зовёт их сама."""
+        self._bot.add_coins(int(n or 1))
+        return self._bot.public_stats()
+
+    def buy(self, item):
+        return self._bot.buy(item)
+
+    def reset_cooldown(self, kind):
+        return self._bot.reset_cooldown(kind)
 
     def save_last(self, text):
         self._bot.last_answer = str(text or "")[:12000]
@@ -306,6 +374,24 @@ class Bot:
         self.ready = False
         self.placed = False
         self.stop_flag = False
+        state = read_state()
+        self.sound = bool(state.get("sound", False))
+        # Шкалы и монеты держим в Python: облачко может быть спрятано,
+        # а тикать жизнь робота должна всё равно.
+        self.stats = {
+            "batt": float(state.get("batt", 100) or 0),
+            "hp": float(state.get("hp", 100) or 0),
+            "sleep": float(state.get("sleep", 100) or 0),
+            "xp": int(state.get("xp", 0) or 0),
+            "coins": int(state.get("coins", 0) or 0),
+        }
+        self.warned = {}
+        self.last_feed = float(state.get("last_feed", 0) or 0)
+        self.last_charge = float(state.get("last_charge", 0) or 0)
+        self.quit_armed = 0.0
+        owned = state.get("cosmetics") or []
+        self.cosmetics = set(x for x in owned if x in SHOP) if isinstance(owned, list) else set()
+        self._phrase = ""
 
         self.regions = {"robot": None, "panel": None, "extra": []}
         self.hover = False
@@ -318,8 +404,23 @@ class Bot:
 
         self.alice = None
         self.alice_lock = threading.Lock()
+        self._alice_hwnd = None
         self.cancel_ask = False
+        self.asking = False
         self.btn_sound = True
+
+        self.cloud = None
+        self.cloud_visible = False
+        self.cloud_shaped = False
+        self.cloud_text = ""
+        self.cloud_thinking = False
+        self.cloud_hwnd = None
+        self.cloud_w = CLOUD_W
+        self.cloud_h = CLOUD_H
+
+        self.mascot = None
+        self.mascot_w = 110
+        self.mascot_h = 124
 
         self.dragging = False
         self.drag_off = (0.0, 0.0)
@@ -351,49 +452,467 @@ class Bot:
         except Exception as exc:
             guard("place", exc)
 
-    def on_ready(self):
-        # Событие loaded и вызов api.ready() из страницы приходят оба —
-        # без флага поднимаются два трея и два потока перетаскивания.
-        if self.ready:
+    # -------------------------------------------------- робот
+
+    def start_mascot(self):
+        import mascot as mascot_mod
+
+        self.mascot_w, self.mascot_h = mascot_mod.DW, mascot_mod.DH
+        wx, wy, ww, wh = self.work_area()
+        x = wx + ww - self.mascot_w - 48
+        y = wy + wh - self.mascot_h - 64
+        self.mascot = mascot_mod.Mascot(
+            on_click=self.on_mascot_click, on_move=self.move_cloud,
+            on_key=self.on_mascot_key, log=log, cosmetics=self.cosmetics)
+        self.mascot.start(x, y)
+        self.mascot.set_stats(self.public_stats())
+
+    def on_mascot_key(self, key):
+        """Кнопки на корпусе робота: питание, меню, сон, звук."""
+        log("mascot key %s" % key)
+        if key == "power":
+            now = time.time()
+            if now < self.quit_armed:
+                self.quit()
+                return
+            self.quit_armed = now + 3
+            self.show_cloud("Выключить Т.И.М.? Нажми кнопку питания ещё раз.", False)
             return
-        self.ready = True
-        self.place()
+        if key == "menu":
+            self.open_bubble()
+            try:
+                self.cloud.evaluate_js("window.cloud && window.cloud.menu(true)")
+            except Exception as exc:
+                guard("menu key", exc)
+            return
+        if key == "sleep":
+            self.flying = False
+            if self.mascot is not None:
+                self.mascot.set_flying(False)
+            self.set_face("sleep")
+            self.hide_cloud()
+            return
+        if key == "sound":
+            self.toggle_sound()
+
+    def toggle_sound(self):
+        """Единая точка: кнопка на корпусе, трей и облачко должны совпадать."""
+        self.sound = not self.sound
+        log("sound %s" % ("on" if self.sound else "off"))
+        self.save_stats()
+        self.push_sound()
+        self.chirp("ok" if self.sound else "bad")
+        return self.sound
+
+    def on_mascot_click(self):
+        log("mascot click")
+        self.set_face("idle")
+        if self.cloud_visible:
+            self.hide_cloud()
+            return
+        self.open_bubble()
+
+    def open_bubble(self):
+        self.show_cloud(self.cloud_text, False)
+        self.chirp("blip")
         try:
-            log("inner size %s" % self.win.evaluate_js(
-                "window.innerWidth + 'x' + window.innerHeight"))
+            import win_backend
+
+            handle = self.cloud_hwnd or win_backend.hwnd_of(self.cloud)
+            self.cloud_hwnd = handle
+            log("focus cloud: %s" % win_backend.focus_window(handle))
+            # Каретку ставим с задержкой: окно активируется не мгновенно.
+            threading.Timer(0.15, self._focus_cloud_input).start()
         except Exception as exc:
-            guard("inner size", exc)
-        plat.start_drag(self)
+            guard("focus cloud", exc)
+    def _focus_cloud_input(self):
+        if self.cloud is None:
+            return
+        try:
+            self.cloud.evaluate_js("window.cloud && window.cloud.focusInput()")
+        except Exception as exc:
+            guard("focus cloud input", exc)
+
+    def set_face(self, face):
+        if self.mascot is not None:
+            self.mascot.set_face(face)
+
+    # -------------------------------------------------- жизнь робота
+
+    def public_stats(self):
+        keys = ("batt", "hp", "sleep", "xp", "coins")
+        return {k: int(round(self.stats[k])) for k in keys}
+
+    def start_stats(self):
+        threading.Thread(target=self._stats_loop, daemon=True).start()
+        threading.Thread(target=self._ambient_loop, daemon=True).start()
+        threading.Thread(target=self._phrase_loop, daemon=True).start()
+
+    def _stats_loop(self):
+        ticks = 0
+        while True:
+            time.sleep(15)
+            ticks += 1
+            try:
+                self.stats_tick(save=not ticks % 4)
+            except Exception as exc:
+                guard("stats_tick", exc)
+
+    def stats_tick(self, save=True):
+        st = self.stats
+        asleep = getattr(self.mascot, "face", "") == "sleep"
+        st["batt"] = max(0.0, min(100.0, st["batt"] + (0.35 if asleep else -0.12)))
+        st["sleep"] = max(0.0, min(100.0, st["sleep"] + (2.2 if asleep else -0.2)))
+        if st["batt"] < 20 or st["sleep"] < 15:
+            st["hp"] = max(0.0, st["hp"] - 0.12)
+        else:
+            st["hp"] = min(100.0, st["hp"] + 0.05)
+        if st["hp"] > 50 and st["batt"] > 30 and st["sleep"] > 40:
+            st["xp"] += 1
+            if st["xp"] % 100 == 0:
+                log("level up: %d" % (1 + st["xp"] // 100))
+                self.set_face("laugh")
+                threading.Timer(1.6, lambda: self.set_face("idle")).start()
+                self.chirp("ok")
+
+        if st["batt"] < 20 and not self.warned.get("batt"):
+            self.warned["batt"] = True
+            self.set_face("sad")
+            self.chirp("bad")
+        elif st["batt"] > 40:
+            self.warned["batt"] = False
+
+        if st["hp"] < 30 and not self.warned.get("hp"):
+            self.warned["hp"] = True
+            self.set_face("sad")
+            self.chirp("bad")
+        elif st["hp"] > 55:
+            self.warned["hp"] = False
+
+        if st["sleep"] < 15 and not self.warned.get("sleep"):
+            self.warned["sleep"] = True
+            self.set_face("sleep")
+            self.chirp("ok")
+        elif st["sleep"] > 45:
+            self.warned["sleep"] = False
+
+        if save:
+            self.save_stats()
+        self.push_stats()
+
+    def save_stats(self):
+        try:
+            data = read_state()
+            for key in ("batt", "hp", "sleep", "xp", "coins"):
+                data[key] = self.stats[key]
+            data["last_feed"] = self.last_feed
+            data["last_charge"] = self.last_charge
+            data["sound"] = self.sound
+            data["cosmetics"] = sorted(self.cosmetics)
+            write_state(data)
+        except Exception as exc:
+            guard("save_stats", exc)
+
+    def push_stats(self):
+        if self.mascot is not None:
+            self.mascot.set_stats(self.public_stats())
+        if self.cloud is None or not self.cloud_visible:
+            return
+        try:
+            self.cloud.evaluate_js("window.cloud && window.cloud.stats(%s)"
+                                   % json.dumps(self.public_stats()))
+        except Exception as exc:
+            guard("push_stats", exc)
+
+    def push_sound(self):
+        if self.cloud is None:
+            return
+        try:
+            self.cloud.evaluate_js("window.cloud && window.cloud.setSound(%s)"
+                                   % json.dumps(bool(self.sound)))
+        except Exception as exc:
+            guard("push_sound", exc)
+
+    def chirp(self, kind="blip"):
+        """Пищалки рисует страница облачка: свой WebAudio-движок."""
+        if self.cloud is None:
+            return False
+        try:
+            self.cloud.evaluate_js("window.cloud && window.cloud.chirp(%s)" % json.dumps(kind))
+            return True
+        except Exception as exc:
+            guard("chirp", exc)
+            return False
+
+    def _ambient_loop(self):
+        """Робот потихоньку попискивает сам по себе."""
+        while True:
+            time.sleep(random.uniform(35, 80))
+            self.chirp("blip")
+
+    def _phrase_loop(self):
+        """Раз в 15–30 минут робот говорит что-нибудь от себя."""
+        time.sleep(random.uniform(60, 180))
+        while True:
+            try:
+                self.say_phrase()
+            except Exception as exc:
+                guard("phrase", exc)
+            time.sleep(random.uniform(900, 1800))
+
+    def say_phrase(self):
+        if self.cloud is None or self.cloud_visible or self.asking:
+            return False
+        if self.mascot is not None and self.mascot.face == "sleep":
+            return False
+        phrase = random.choice(PHRASES)
+        if not self.show_cloud(phrase, False):
+            return False
+        self._phrase = phrase
+        self.set_face("happy")
+        threading.Timer(2.0, lambda: self.set_face("idle")).start()
+        threading.Timer(24, self._hide_phrase).start()
+        self.chirp("blip")
+        log("phrase shown")
+        return True
+
+    def _hide_phrase(self):
+        """Закрывает только свою фразу: ответ Алисы не трогаем."""
+        if self.cloud_visible and self.cloud_text == self._phrase:
+            self.hide_cloud()
+
+    def reset_cooldown(self, kind):
+        """Сброс ожидания корма или зарядки за монеты."""
+        wait = self._wait_left(kind)
+        if wait is None:
+            return {"ok": False, "why": "unknown", "stats": self.public_stats()}
+        if wait <= 0:
+            return {"ok": False, "why": "ready", "stats": self.public_stats()}
+        if self.stats["coins"] < RESET_COST:
+            self.chirp("bad")
+            return {"ok": False, "why": "coins", "need": RESET_COST,
+                    "stats": self.public_stats()}
+        self.stats["coins"] -= RESET_COST
+        if kind == "feed":
+            self.last_feed = 0.0
+        else:
+            self.last_charge = 0.0
+        self.save_stats()
+        self.push_stats()
+        log("reset %s for coins" % kind)
+        return {"ok": True, "stats": self.public_stats()}
+
+    def _wait_left(self, kind):
+        now = time.time()
+        if kind == "feed":
+            return int(FEED_COOLDOWN - (now - self.last_feed))
+        if kind == "charge":
+            return int(CHARGE_COOLDOWN - (now - self.last_charge))
+        return None
+
+    def buy(self, item):
+        price = SHOP.get(item)
+        if price is None:
+            return {"ok": False, "why": "unknown", "stats": self.public_stats()}
+        if item in self.cosmetics:
+            return {"ok": False, "why": "owned", "stats": self.public_stats()}
+        if self.stats["coins"] < price:
+            self.chirp("bad")
+            return {"ok": False, "why": "coins", "need": price,
+                    "stats": self.public_stats()}
+        self.stats["coins"] -= price
+        self.cosmetics.add(item)
+        self.save_stats()
+        self.push_stats()
+        if self.mascot is not None:
+            self.mascot.set_cosmetics(self.cosmetics)
+        self.chirp("coin")
+        log("bought %s for %d" % (item, price))
+        return {"ok": True, "stats": self.public_stats(),
+                "owned": sorted(self.cosmetics)}
+
+    def add_coins(self, n=1):
+        self.stats["coins"] = int(self.stats["coins"]) + int(n)
+        log("coins: %d" % self.stats["coins"])
+        self.save_stats()
+        self.push_stats()
+        self.chirp("coin")
+
+    def feed(self):
+        now = time.time()
+        wait = int(FEED_COOLDOWN - (now - self.last_feed))
+        if wait > 0:
+            self.chirp("bad")
+            return {"ok": False, "wait": wait, "stats": self.public_stats()}
+        st = self.stats
+        st["hp"] = min(100.0, st["hp"] + 15)
+        st["sleep"] = min(100.0, st["sleep"] + 5)
+        st["batt"] = min(100.0, st["batt"] + 3)
+        self.last_feed = now
+        self.save_stats()
+        self.set_face("love")
+        threading.Timer(1.2, lambda: self.set_face("idle")).start()
+        self.add_coins(1)
+        return {"ok": True, "stats": self.public_stats()}
+
+    def charge(self):
+        """Зарядка: +25 к батарее, не чаще раза в три минуты."""
+        now = time.time()
+        wait = int(CHARGE_COOLDOWN - (now - self.last_charge))
+        if wait > 0:
+            self.chirp("bad")
+            return {"ok": False, "wait": wait, "stats": self.public_stats()}
+        self.stats["batt"] = min(100.0, self.stats["batt"] + 25)
+        self.last_charge = now
+        self.save_stats()
+        self.push_stats()
+        self.set_face("happy")
+        threading.Timer(1.2, lambda: self.set_face("idle")).start()
+        self.chirp("ok")
+        return {"ok": True, "wait": 0, "stats": self.public_stats()}
+
+    def toggle_fly(self):
+        """Режим полёта: робот отращивает крылья и сам летает по экрану."""
+        self.flying = not getattr(self, "flying", False)
+        if self.mascot is not None:
+            self.mascot.set_flying(self.flying)
+        log("fly %s" % ("on" if self.flying else "off"))
+        return self.flying
+
+    def dance(self):
+        def run():
+            for face, delay in (("happy", 0.4), ("wink", 0.4), ("laugh", 0.5),
+                                ("surprise", 0.4), ("love", 0.5), ("smirk", 0.4),
+                                ("idle", 0.0)):
+                self.set_face(face)
+                time.sleep(delay)
+
+        threading.Thread(target=run, daemon=True).start()
+        self.chirp("ok")
+        return True
+
+
+    # -------------------------------------------------- облачко
+
+    def cloud_position(self):
+        """Облачко лежит прямо на мониторе: без хвостика и зазоров."""
+        if self.mascot is not None:
+            mx, my = self.mascot.position()
+            x = mx + (self.mascot_w - self.cloud_w) / 2
+            y = my + 2 - self.cloud_h
+        else:
+            x = self.x + (getattr(self, "win_w", WIN_W) - self.cloud_w) / 2
+            y = self.y + 2 - self.cloud_h
+        wx, wy, ww, wh = self.work_area()
+        x = min(max(x, wx), wx + ww - self.cloud_w)
+        y = max(y, wy)
+        return int(x), int(y)
+
+    def show_cloud(self, text, thinking=False):
+        cloud = self.cloud
+        if cloud is None:
+            return False
+        self.cloud_text = str(text or "")[:12000]
+        self.cloud_thinking = bool(thinking)
+        self.shape_cloud()
+        x, y = self.cloud_position()
+        script = ("window.cloud && window.cloud.show.apply(null, %s)"
+                  % json.dumps([self.cloud_text, self.cloud_thinking]))
+        try:
+            if self.cloud_hwnd:
+                import win_backend
+
+                win_backend.move(self.cloud_hwnd, x, y)
+            else:
+                cloud.move(x, y)
+            cloud.show()
+            self.cloud_visible = True
+            cloud.evaluate_js(script)
+            log("cloud show at %d,%d" % (x, y))
+            return True
+        except Exception as exc:
+            guard("show_cloud", exc)
+            return False
+
+    def hide_cloud(self):
+        cloud = self.cloud
+        if cloud is None or not self.cloud_visible:
+            return False
+        try:
+            if self.cloud_hwnd:
+                import win_backend
+
+                win_backend.show_window(self.cloud_hwnd, False)
+            else:
+                cloud.hide()
+            self.cloud_visible = False
+            log("cloud hide")
+            return True
+        except Exception as exc:
+            guard("hide_cloud", exc)
+            return False
+
+    def move_cloud(self):
+        """Двигает облачко за роботом: напрямую, без маршалинга."""
+        if self.cloud is None or not self.cloud_visible:
+            return
+        x, y = self.cloud_position()
         if sys.platform == "win32":
             import win_backend
 
-            threading.Thread(target=lambda: (time.sleep(2.5), win_backend.activate(self)),
-                             daemon=True).start()
-        threading.Thread(target=self.audit_menu, daemon=True).start()
-        threading.Thread(target=self.start_tray, daemon=True).start()
-
-    def audit_menu(self):
-        """Проверяет, что у каждого пункта меню есть обработчик."""
-        time.sleep(3)
+            if self.cloud_hwnd is None:
+                self.cloud_hwnd = win_backend.hwnd_of(self.cloud)
+            if self.cloud_hwnd:
+                win_backend.move(self.cloud_hwnd, x, y)
+                return
         try:
-            bad = self.win.evaluate_js(
-                "(window.TIM && window.TIM.menu) ? window.TIM.menu.audit() : ['menu']")
-            if bad:
-                log("menu audit: без обработчика %r" % (bad,), "error")
-            else:
-                log("menu audit ok")
+            self.cloud.move(x, y)
         except Exception as exc:
-            guard("audit_menu", exc)
+            guard("move_cloud", exc)
 
-    def log(self, msg):
-        log(msg)
+    def shape_cloud(self):
+        """Скругление и форма окна — один раз: регион на лету менять нельзя."""
+        if self.cloud_shaped or sys.platform != "win32" or self.cloud is None:
+            return
+        try:
+            import win_backend
 
-    def resource(self, rel):
-        return resource_path(rel)
+            handle = self.cloud_hwnd or win_backend.find_window(self.cloud)
+            if not handle:
+                return
+            self.cloud_hwnd = handle
+            width, height = win_backend.window_size(handle)
+            if width and height:
+                self.cloud_w, self.cloud_h = width, height
+            win_backend.shape_bubble(handle, CLOUD_TAIL)
+            win_backend.make_tool_window(handle)
+            self.cloud_shaped = True
+            log("cloud shaped %dx%d" % (self.cloud_w, self.cloud_h))
+        except Exception as exc:
+            guard("shape_cloud", exc)
+
+    def shape_cloud_soon(self):
+        for _ in range(50):
+            if self.cloud_shaped or self.cloud is None:
+                return
+            self.shape_cloud()
+            time.sleep(0.2)
+
+    def on_ready(self):
+        if self.ready:
+            return
+        self.ready = True
+        log("ready")
+        threading.Thread(target=self.shape_cloud_soon, daemon=True).start()
 
     def focus_input(self):
+        """Горячая клавиша и трей: в режиме робота поле живёт в облачке."""
+        if sys.platform == "win32" and self.cloud is not None:
+            self.open_bubble()
+            return
         try:
-            self.win.evaluate_js("document.getElementById('q').focus()")
+            self.win.evaluate_js(
+                "document.getElementById('q') && document.getElementById('q').focus()")
         except Exception as exc:
             guard("focus_input", exc)
 
@@ -405,6 +924,12 @@ class Bot:
         except Exception as exc:
             guard("toggle_sound_js", exc)
 
+    def resource(self, rel):
+        return resource_path(rel)
+
+    def log(self, msg, level="info"):
+        log(msg, level)
+
     def start_tray(self):
         plat.start_tray(self)
 
@@ -415,15 +940,10 @@ class Bot:
         log("quit requested")
         os._exit(0)
 
-    # -------------------------------------------------- мышь
+    # -------------------------------------------------- зоны старого монитора
 
     def set_regions(self, robot, panel, extra=None):
-        self.regions["robot"] = robot
-        self.regions["panel"] = panel
-        self.regions["extra"] = extra if isinstance(extra, list) else []
-
-    def cursor(self):
-        return plat.cursor()
+        self.regions = {"robot": robot, "panel": panel, "extra": list(extra or [])}
 
     @staticmethod
     def _inside(rect, px, py):
@@ -432,101 +952,133 @@ class Bot:
         return (rect["x"] <= px <= rect["x"] + rect["w"]
                 and rect["y"] <= py <= rect["y"] + rect["h"])
 
-    def set_click_through(self, ignore):
-        if self.ignore_state == ignore:
-            return
-        self.ignore_state = ignore
-        plat.set_click_through(self.win, ignore)
+    def cursor(self):
+        try:
+            return plat.cursor()
+        except Exception as exc:
+            guard("cursor", exc)
+            return None, False
 
     def track(self):
-        if plat.OWNS_DRAG:
-            return
-        point, down = self.cursor()
-        if point is None:
-            self.hover = False
-            return
-        px, py = point[0] - self.x, point[1] - self.y
-        over_robot = self._inside(self.regions["robot"], px, py)
-        over_panel = self._inside(self.regions["panel"], px, py)
-        over_extra = any(self._inside(r, px, py) for r in self.regions["extra"])
-        self.hover = over_robot or over_panel or over_extra
-        self.set_click_through(not self.hover)
+        return self.cursor()
 
-        if down and over_robot and not self.dragging:
-            self.dragging = True
-            self.drag_off = (px, py)
-        if self.dragging:
-            if not down:
-                self.dragging = False
-            else:
-                self.x = point[0] - self.drag_off[0]
-                self.y = point[1] - self.drag_off[1]
-                try:
-                    plat.move_window(self.win, self.x, self.y)
-                except Exception as exc:
-                    guard("drag", exc)
+    def set_click_through(self, ignore):
+        if self.win is None:
+            return
+        try:
+            plat.set_click_through(self.win, bool(ignore))
+        except Exception as exc:
+            guard("set_click_through", exc)
 
-        if self.hover or self.dragging:
-            self.last_activity = time.time()
-            self.sleeping = False
-        elif time.time() - self.last_activity > LOOP_CFG.get("sleep_after_s", 180):
-            self.sleeping = True
+    def loop(self):
+        while not self.stop_flag:
+            time.sleep(0.05)
+
+    def push(self):
+        time.sleep(0.05)
 
     # -------------------------------------------------- Алиса
 
     def make_alice(self, visible):
-        try:
-            win = webview.create_window(
-                "Алиса", ALICE_URL, width=520, height=820,
-                x=(150 if visible else -2600),
-                y=(80 if visible else -2600),
-                hidden=not visible,
-                on_top=visible,
-            )
-            log("create_window ok visible=%s" % visible)
-            return win
-        except Exception as exc:
-            log("create_window failed: %r" % exc)
+        win = self.alice
+        if win is None:
             return None
+        if visible:
+            try:
+                win.show()
+            except Exception as exc:
+                guard("make_alice", exc)
+        return win
+
+    def _alice_ok(self, win):
+        try:
+            return win.evaluate_js("1+1") == 2
+        except Exception:
+            return False
+
+    def _create_alice(self):
+        def act():
+            try:
+                win = webview.create_window(
+                    "Алиса", ALICE_URL, width=520, height=820,
+                    x=150, y=80, hidden=True, on_top=False)
+                win.events.closing += self.alice_closing
+                self.alice = win
+                log("alice window created")
+            except Exception as exc:
+                guard("alice create", exc)
+
+        plat.call_soon(act)
 
     def ensure_alice(self):
-        if self.alice is not None:
-            return self.alice
-        self.alice = self.make_alice(False)
+        """Окно Алисы могло быть закрыто — тогда поднимаем новое."""
+        win = self.alice
+        if win is not None and self._alice_ok(win):
+            return win
+        log("alice: окна нет, создаю новое")
+        self._create_alice()
+        for _ in range(40):
+            win = self.alice
+            if win is not None and self._alice_ok(win):
+                return win
+            time.sleep(0.5)
         return self.alice
 
     def alice_closing(self, *args):
-        log("alice closing intercepted -> invisible")
-        self._alice_set(0.0, True, -2600, -2600)
-        return False
-
-    def show_alice(self):
-        win = self.alice
-        if win is None:
-            log("no alice window, recreating")
-            win = self.ensure_alice()
-        if win is None:
-            return False
-
-        self._alice_set(1.0, False, 150, 80)
+        log("alice window closing")
+        # Окно закрыли руками — забудем его, ensure_alice создаст новое.
+        self.alice = None
+        self._alice_hwnd = None
         return True
 
+    def show_alice(self):
+        with self.alice_lock:
+            win = self.ensure_alice()
+            if win is None:
+                return False
+            self._alice_set(1.0, False, 150, 80)
+            return True
+
     def _alice_set(self, alpha, ignore, x, y):
+        """Скрывает или показывает окно Алисы.
+
+        При alpha = 0 на Windows окно остаётся видимым для системы, но
+        полностью прозрачным: скрытое окно Chromium душит и ответа не дождаться.
+        """
         def act():
             try:
                 win = self.alice
-                native = getattr(win, "native", None)
-                if native is not None:
-                    try:
-                        native.setAlphaValue_(alpha)
-                    except Exception as exc:
-                        log("alpha failed: %r" % exc)
-                    try:
-                        native.setIgnoresMouseEvents_(ignore)
-                    except Exception as exc:
-                        log("ignore failed: %r" % exc)
-                win.move(x, y)
-                win.show()
+                if win is None:
+                    return
+                if sys.platform == "win32":
+                    import win_backend
+
+                    hwnd = self._alice_hwnd
+                    if not hwnd:
+                        hwnd = win_backend.hwnd_of(win)
+                        self._alice_hwnd = hwnd
+                    if not hwnd:
+                        log("alice set: окна нет")
+                        return
+                    if alpha > 0:
+                        win_backend.clear_ghost(hwnd)
+                        win.move(x, y)
+                        win.show()
+                    else:
+                        win_backend.ghost(hwnd)
+                else:
+                    native = getattr(win, "native", None)
+                    if native is not None:
+                        try:
+                            native.setAlphaValue_(alpha)
+                        except Exception as exc:
+                            log("alpha failed: %r" % exc)
+                        try:
+                            native.setIgnoresMouseEvents_(ignore)
+                        except Exception as exc:
+                            log("ignore failed: %r" % exc)
+                    win.move(x, y)
+                    win.show()
                 log("alice alpha=%s ignore=%s" % (alpha, ignore))
             except Exception as exc:
                 log("alice set failed: %r" % exc)
@@ -534,93 +1086,227 @@ class Bot:
         plat.call_soon(act)
 
     def _wake_alice(self, win):
+        """Прячет окно Алисы невидимо для задач."""
         self._alice_set(0.0, True, -2600, -2600)
 
-    def ask_alice(self, text):
-        text = (text or "").strip()
-        if not text:
-            return ""
-        with self.alice_lock:
-            self.cancel_ask = False
-            win = self.ensure_alice()
-            if win is None:
-                return "Не удалось открыть окно Алисы."
-            self._wake_alice(win)
-            time.sleep(0.45)
-            try:
-                page = (win.evaluate_js(BLOCKED_JS) or "").lower()
-                if "устарел" in page or "unsupported" in page or "обновите браузер" in page:
-                    return "Яндекс считает встроенный браузер старым. Нажмите ⌗ — откроется окно Алисы."
-                before = win.evaluate_js(READ_JS) or ""
-                sent = win.evaluate_js(SUBMIT_JS % json.dumps(text))
-                if sent != "sent":
-                    return "Не нашёл поле ввода. Откройте окно Алисы и войдите в аккаунт."
-                last = ""
-                stable = 0
-                probe = text.strip().lower()[:24]
-                for _ in range(60):
-                    time.sleep(0.5)
-                    if self.cancel_ask:
-                        self.cancel_ask = False
-                        log("ask cancelled")
-                        return ""
-                    try:
-                        now = win.evaluate_js(READ_JS) or ""
-                    except Exception:
-                        now = ""
-                    echo = now.strip().lower().startswith(probe)
-                    if now and now != before and not echo:
-                        if now == last:
-                            stable += 1
-                            if stable >= 3:
-                                return now
-                        else:
-                            last = now
-                            stable = 0
-                return last or "Алиса молчит — проверьте вход и окно Алисы."
-            except Exception:
-                return "Ошибка связи с окном Алисы."
-
-    # -------------------------------------------------- цикл
-
-    def loop(self):
-        tick = 0
-        while not self.stop_flag:
-            try:
-                if self.win is not None:
-                    self.track()
-                    tick += 1
-                    if tick % LOOP_CFG.get("push_every", 3) == 0:
-                        self.push()
-                    if tick % LOOP_CFG.get("heartbeat_every", 100) == 0:
-                        log("alive tick=%d hover=%s drag=%s regions=%s"
-                            % (tick, self.hover, self.dragging,
-                               self.regions.get("robot")))
-                    if tick % LOOP_CFG.get("quit_check_every", 10) == 0:
-                        if self.win.evaluate_js("window.TIM && window.TIM.quit") is True:
-                            log("quit flag seen")
-                            os._exit(0)
-            except Exception as exc:
-                if tick % 100 == 0:
-                    log("loop: %r" % exc)
-            time.sleep(LOOP_CFG.get("tick_ms", 100) / 1000.0)
-
-    def push(self):
-        if not self.ready or self.win is None:
+    def _restore_cloud_focus(self):
+        """Возвращает фокус в поле облачка, если его забрала Алиса."""
+        if self.cloud is None or not self.cloud_visible:
             return
         try:
-            self.win.evaluate_js("window.TIM && window.TIM.state(%s)"
-                                 % json.dumps({"hover": self.hover, "sleep": self.sleeping}))
+            import win_backend
+
+            handle = self.cloud_hwnd or win_backend.hwnd_of(self.cloud)
+            self.cloud_hwnd = handle
+            # Пользователь мог уйти в другое окно — тогда не перебиваем его.
+            if self._alice_hwnd and not win_backend.foreground_is(self._alice_hwnd):
+                return
+            win_backend.focus_window(handle)
+            threading.Timer(0.15, self._focus_cloud_input).start()
         except Exception as exc:
-            guard("push", exc)
+            guard("restore cloud focus", exc)
+
+    @staticmethod
+    def _extract_answer(tail, question):
+        """Ответ = текст после вопроса до служебных строк интерфейса."""
+        low = tail.lower()
+        q = question.strip().lower()
+        pos = -1
+        start = 0
+        while True:
+            i = low.find(q, start)
+            if i < 0:
+                break
+            if "алиса" in low[i:i + len(q) + 12]:
+                pos = i
+            start = i + 1
+        if pos < 0:
+            return ""
+        rest = tail[pos + len(q):]
+        for marker in UI_MARKERS:
+            idx = rest.find(marker)
+            if idx >= 0:
+                rest = rest[:idx]
+        rest = rest.strip()
+        if rest.startswith("Алиса"):
+            rest = rest[len("Алиса"):].strip()
+        return rest if len(rest) >= 10 else ""
+
+    def ask_alice(self, text):
+        """Пишет вопрос в окно Алисы и ждёт ответ по DOM."""
+        text = str(text or "").strip()
+        if not text:
+            return ""
+        win = self.ensure_alice()
+        if win is None:
+            log("alice: окна нет", "warn")
+            return ""
+        self.cancel_ask = False
+        # Вопрос идёт через страницу: окно Алисы не показываем, а если его
+        # открыли вручную (вход) — прячем перед отправкой.
+        self._wake_alice(win)
+        probe = text.lower()[:60]
+        try:
+            sent = win.evaluate_js(SUBMIT_JS % json.dumps(text))
+            log("alice submit: %s" % sent)
+        except Exception as exc:
+            guard("alice submit", exc)
+            self._wake_alice(win)
+            self._restore_cloud_focus()
+            return ""
+        if sent == "no-input":
+            log("alice: поля ввода нет — похоже, нужен вход", "warn")
+            self.show_alice()
+            return "Нужно войти в Алису: нажми ⌗ в облачке, войди — и спроси ещё раз."
+        # Задачи отдаются только активному окну: забираем фокус в прозрачную
+        # Алису и тут же возвращаем в облачко — вопрос уже отправлен.
+        try:
+            import win_backend
+
+            if self._alice_hwnd:
+                win_backend.focus_window(self._alice_hwnd)
+        except Exception as exc:
+            guard("alice focus", exc)
+        self._restore_cloud_focus()
+        time.sleep(0.3)
+        # Баннер «Войдите в аккаунт» висит на странице всегда, даже когда
+        # чат отвечает анонимно — по нему нельзя судить, есть ли сессия.
+        started = time.time()
+        deadline = started + 40
+        candidate = ""
+        while time.time() < deadline:
+            if self.cancel_ask:
+                log("alice: отменено")
+                self._wake_alice(win)
+                self._restore_cloud_focus()
+                return ""
+            time.sleep(0.6)
+            try:
+                tail = win.evaluate_js(READ_TAIL_JS) or ""
+            except Exception as exc:
+                guard("alice read", exc)
+                continue
+            now = self._extract_answer(str(tail), text)
+            if not now:
+                continue
+            # Сайт без сессии отдаёт страницу «войдите в аккаунт» — это не ответ.
+            low_now = now.lower()
+            if "не удалось загрузить" in low_now:
+                log("alice: чат не открылся — нужен вход", "warn")
+                self.show_alice()
+                return "Нужно войти в Алису: нажми ⌗ в облачке, войди — и спроси ещё раз."
+            echo = now.strip().lower().startswith(probe)
+            if echo:
+                candidate = ""
+                continue
+            # «Готовлю ответ, подождите» — это ещё не ответ.
+            low = now.lower()
+            if "готовлю ответ" in low or "подождите немного" in low:
+                candidate = ""
+                continue
+            # ответ засчитываем, когда он два раза подряд пришёл одинаковым
+            if candidate == now:
+                log("alice answer: %d chars" % len(now))
+                try:
+                    self._wake_alice(win)
+                except Exception as exc:
+                    guard("alice park", exc)
+                self._restore_cloud_focus()
+                return now
+            candidate = now
+        try:
+            blocked = win.evaluate_js(BLOCKED_JS) or ""
+        except Exception:
+            blocked = ""
+        log("alice: таймаут, экран %r" % str(blocked)[:120], "warn")
+        try:
+            tail = str(win.evaluate_js(READ_TAIL_JS) or "")
+        except Exception:
+            tail = ""
+        log("alice tail: %r" % tail[-500:], "warn")
+        self._wake_alice(win)
+        self._restore_cloud_focus()
+        return ""
+
+
+def _run():
+    bot = Bot()
+    api = Api(bot)
+    if sys.platform == "win32":
+        _run_mascot(bot, api)
+        return
+    kw = dict(
+        title="Т.И.М.",
+        url=resource_path("ui/index.html"),
+        js_api=api,
+        width=WIN_W,
+        height=WIN_H,
+        frameless=True,
+        on_top=True,
+        resizable=False,
+        easy_drag=False,
+    )
+    kw["background_color"] = "#000000"
+    if sys.platform == "darwin":
+        kw["shadow"] = False
+    try:
+        window = webview.create_window(transparent=True, **kw)
+    except (TypeError, ValueError):
+        log("transparent unsupported, retry opaque")
+        window = webview.create_window(transparent=False, **kw)
+    bot.win = window
+    bot.cloud = webview.create_window(
+        # Заголовок обязан отличаться от монитора: поиск окна по имени иначе
+        # находит монитор и двигает не то окно.
+        "Т.И.М. — ответ", resource_path("ui/cloud.html"),
+        width=CLOUD_W, height=CLOUD_H,
+        frameless=True, on_top=True, hidden=True, focus=False,
+        resizable=False, easy_drag=False, background_color="#000000",
+    )
+    bot.alice = webview.create_window(
+        "Алиса", ALICE_URL, width=520, height=820, x=150, y=80, hidden=True, on_top=False
+    )
+    bot.alice.events.closing += bot.alice_closing
+    bot.setup_position()
+    window.events.loaded += lambda: bot.on_ready()
+    window.events.closed += lambda *a: os._exit(0)
+    install_autostart()
+    webview.start(bot.loop, http_server=True, debug=False, user_agent=UA)
+
+
+def _run_mascot(bot, api):
+    """Windows: робот на рабочем столе плюс облачко с ответом и вводом."""
+    # Окно Алисы не показываем, но страница должна работать как активная:
+    # без этих флагов Chromium душит скрытое окно и ответ не приходит.
+    os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (
+        "--disable-background-timer-throttling "
+        "--disable-renderer-backgrounding "
+        "--disable-backgrounding-occluded-windows")
+    bot.cloud = webview.create_window(
+        "Т.И.М. — ответ", resource_path("ui/cloud.html"),
+        width=CLOUD_W, height=CLOUD_H,
+        frameless=True, on_top=True, hidden=True, focus=False,
+        resizable=False, easy_drag=False, background_color="#000000",
+        js_api=api,
+    )
+    bot.alice = webview.create_window(
+        "Алиса", ALICE_URL, width=520, height=820, x=150, y=80, hidden=True, on_top=False
+    )
+    bot.alice.events.closing += bot.alice_closing
+    install_autostart()
+    bot.start_mascot()
+    bot.start_tray()
+    bot.start_hotkey()
+    bot.start_stats()
+    webview.start(None, http_server=True, debug=False, user_agent=UA)
 
 
 def install_autostart():
-    """Поднимает Т.И.М. при входе в систему средствами платформы."""
     if plat.install_autostart():
         log("autostart installed")
     else:
-        log("autostart skipped", "warn")
+        # Не ошибка: из исходников автозапуск не ставят.
+        log("autostart skipped")
 
 
 def main():
@@ -655,40 +1341,6 @@ def main():
         except Exception:
             pass
         raise
-
-
-def _run():
-    bot = Bot()
-    api = Api(bot)
-    kw = dict(
-        title="Т.И.М.",
-        url=resource_path("ui/index.html"),
-        js_api=api,
-        width=WIN_W,
-        height=WIN_H,
-        frameless=True,
-        on_top=True,
-        resizable=False,
-        easy_drag=False,
-    )
-    kw["background_color"] = "#000000"
-    if sys.platform == "darwin":
-        kw["shadow"] = False
-    try:
-        window = webview.create_window(transparent=True, **kw)
-    except (TypeError, ValueError):
-        log("transparent unsupported, retry opaque")
-        window = webview.create_window(transparent=False, **kw)
-    bot.win = window
-    bot.alice = webview.create_window(
-        "Алиса", ALICE_URL, width=520, height=820, x=150, y=80, hidden=True, on_top=False
-    )
-    bot.alice.events.closing += bot.alice_closing
-    bot.setup_position()
-    window.events.loaded += lambda: bot.on_ready()
-    window.events.closed += lambda *a: os._exit(0)
-    install_autostart()
-    webview.start(bot.loop, http_server=True, debug=False, user_agent=UA)
 
 
 if __name__ == "__main__":

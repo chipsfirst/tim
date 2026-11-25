@@ -19,6 +19,11 @@ kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 gdi32.CreateRoundRectRgn.restype = ctypes.c_void_p
 gdi32.CreateRoundRectRgn.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int,
                                      ctypes.c_int, ctypes.c_int, ctypes.c_int]
+gdi32.CreatePolygonRgn.restype = ctypes.c_void_p
+gdi32.CreatePolygonRgn.argtypes = [ctypes.POINTER(wintypes.POINT), ctypes.c_int, ctypes.c_int]
+gdi32.CombineRgn.restype = ctypes.c_int
+gdi32.CombineRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
+gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
 user32.SetWindowRgn.restype = ctypes.c_int
 user32.SetWindowRgn.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.BOOL]
 
@@ -68,17 +73,31 @@ def cursor():
     return (float(point.x), float(point.y)), down
 
 
+def find_window(win):
+    """Окно pywebview по заголовку — без ожидания, для формы облачка."""
+    title = getattr(win, "title", "") or ""
+    return user32.FindWindowW(None, title) if title else None
+
+
 def hwnd_of(win):
+    """Хендл окна: сначала через нативный объект, поиск по заголовку — запасной.
+
+    int() на System.IntPtr падает, поэтому Handle приводится через ToInt64.
+    """
     for _ in range(50):
         try:
             native = getattr(win, "native", None)
             if native is not None:
-                handle = int(native.Handle)
-                if handle:
-                    return handle
+                handle = native.Handle
+                value = handle.ToInt64() if hasattr(handle, "ToInt64") else int(handle)
+                if value:
+                    return int(value)
         except Exception:
             pass
-        found = user32.FindWindowW(None, "Т.И.М.")
+        # Запасной путь — по заголовку окна: у каждого окна он свой, иначе
+        # поиск «Т.И.М.» возвращал робота вместо облачка.
+        title = getattr(win, "title", "") or ""
+        found = user32.FindWindowW(None, title) if title else None
         if found:
             return found
         time.sleep(0.2)
@@ -118,6 +137,9 @@ class Drag:
             self.bot.log("win drag: окно не найдено")
             return
         self.bot.log("win drag ok")
+        width, height = window_size(self.hwnd)
+        if width and height:
+            self.bot.win_w, self.bot.win_h = width, height
         round_corners(self.hwnd)
         bot = self.bot
         while not bot.stop_flag:
@@ -160,6 +182,7 @@ class Drag:
             bot.x = point[0] - self.offset[0]
             bot.y = point[1] - self.offset[1]
             move(self.hwnd, bot.x, bot.y)
+            bot.move_cloud()
 
         bot.hover = over
         if over or self.dragging:
@@ -184,6 +207,10 @@ def start_tray(bot):
             image = None
 
         def on_show():
+            if getattr(bot, "win", None) is None:
+                # Режим робота: монитора нет, показываем облачко.
+                bot.open_bubble()
+                return
             handle = hwnd_of(bot.win) or 0
             if handle:
                 user32.ShowWindow(handle, 9)
@@ -192,7 +219,9 @@ def start_tray(bot):
 
         menu = pystray.Menu(
             pystray.MenuItem("Показать", lambda: on_show(), default=True),
-            pystray.MenuItem("Звук", lambda: bot.toggle_sound_js()),
+            # В режиме робота страницы монитора нет — звук переключаем в Bot.
+            pystray.MenuItem("Звук", lambda: bot.toggle_sound()
+                             if hasattr(bot, "toggle_sound") else bot.toggle_sound_js()),
             pystray.MenuItem("Выход", lambda: os._exit(0)),
         )
         try:
@@ -207,11 +236,12 @@ def start_tray(bot):
 def start_hotkey(bot):
     def run():
         try:
-            MOD_ALT, VK_SPACE, WM_HOTKEY = 0x0001, 0x20, 0x0312
-            if not user32.RegisterHotKey(None, 1, MOD_ALT, VK_SPACE):
+            # Alt+Space занят системным меню окна — берём Ctrl+Alt+Space.
+            MOD_ALT, MOD_CONTROL, VK_SPACE, WM_HOTKEY = 0x0001, 0x0002, 0x20, 0x0312
+            if not user32.RegisterHotKey(None, 1, MOD_ALT | MOD_CONTROL, VK_SPACE):
                 bot.log("win hotkey busy")
                 return
-            bot.log("hotkey ok (alt+space, win)")
+            bot.log("hotkey ok (ctrl+alt+space, win)")
             msg = wintypes.MSG()
             while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
                 if msg.message == WM_HOTKEY:
@@ -271,6 +301,68 @@ def set_click_through(win, ignore):
 
 
 RADIUS = 16
+RGN_OR = 2
+WS_EX_TOOLWINDOW = 0x00000080
+
+SW_SHOWNOACTIVATE = 4
+
+
+def show_window(hwnd, visible=True):
+    """Показ и скрытие без активации: окно облачка не должно забирать фокус."""
+    if not hwnd:
+        return False
+    try:
+        user32.ShowWindow(wintypes.HWND(hwnd), SW_SHOWNOACTIVATE if visible else 0)
+        return True
+    except Exception:
+        return False
+
+
+def foreground_is(hwnd):
+    """Наше ли окно сейчас в фокусе: чтобы не отбирать его у пользователя."""
+    return bool(hwnd) and user32.GetForegroundWindow() == hwnd
+
+
+WS_EX_LAYERED = 0x00080000
+LWA_ALPHA = 0x00000002
+GWL_EXSTYLE = -20
+
+
+def ghost(hwnd):
+    """Окно видимо для Windows и невидимо глазу: скрытое окно Chromium душит.
+
+    Клики сквозь него не проходят — поэтому окно ещё и уводим за экран.
+    """
+    if not hwnd:
+        return False
+    try:
+        style = user32.GetWindowLongW(wintypes.HWND(hwnd), GWL_EXSTYLE)
+        user32.SetWindowLongW(wintypes.HWND(hwnd), GWL_EXSTYLE, style | WS_EX_LAYERED)
+        ok = bool(user32.SetLayeredWindowAttributes(wintypes.HWND(hwnd), 0, 0, LWA_ALPHA))
+        user32.ShowWindow(wintypes.HWND(hwnd), SW_SHOWNOACTIVATE)
+        return ok
+    except Exception:
+        return False
+
+
+def clear_ghost(hwnd):
+    """Возвращает окну обычную видимость: под ним открывается вход."""
+    if not hwnd:
+        return False
+    try:
+        style = user32.GetWindowLongW(wintypes.HWND(hwnd), GWL_EXSTYLE)
+        user32.SetWindowLongW(wintypes.HWND(hwnd), GWL_EXSTYLE, style & ~WS_EX_LAYERED)
+        return True
+    except Exception:
+        return False
+
+
+def window_size(hwnd):
+    """Фактический размер окна: pywebview создаёт его меньше запрошенного."""
+    rect = wintypes.RECT()
+    if not hwnd or not user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
+        return 0, 0
+    return rect.right - rect.left, rect.bottom - rect.top
 
 
 def round_corners(hwnd):
@@ -291,6 +383,49 @@ def round_corners(hwnd):
         return False
     # SetWindowRgn забирает регион себе — удалять его после вызова нельзя.
     return bool(user32.SetWindowRgn(wintypes.HWND(hwnd), region, True))
+
+
+def shape_bubble(hwnd, tail=14, radius=14):
+    """Форма облачка: скруглённое тело плюс треугольный хвостик снизу.
+
+    Форма статичная — окно облачка не меняет размер, поэтому перерисовка
+    WebView2 не страдает.
+    """
+    if not hwnd:
+        return False
+    rect = wintypes.RECT()
+    if not user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
+        return False
+    width = rect.right - rect.left
+    height = rect.bottom - rect.top
+    region = gdi32.CreateRoundRectRgn(0, 0, width + 1, height - tail + 1, radius, radius)
+    if not region:
+        return False
+    if tail > 0:
+        points = (wintypes.POINT * 3)()
+        middle = width // 2
+        points[0].x, points[0].y = middle - 9, height - tail - 1
+        points[1].x, points[1].y = middle + 9, height - tail - 1
+        points[2].x, points[2].y = middle, height
+        triangle = gdi32.CreatePolygonRgn(points, 3, 1)
+        if triangle:
+            gdi32.CombineRgn(region, region, triangle, RGN_OR)
+            gdi32.DeleteObject(triangle)
+    return bool(user32.SetWindowRgn(wintypes.HWND(hwnd), region, True))
+
+
+def make_tool_window(hwnd):
+    """Убирает облачко из панели задач и Alt+Tab: это всплывающая подсказка."""
+    if not hwnd:
+        return False
+    try:
+        style = user32.GetWindowLongW(wintypes.HWND(hwnd), GWL_EXSTYLE)
+        if not style & WS_EX_TOOLWINDOW:
+            user32.SetWindowLongW(wintypes.HWND(hwnd), GWL_EXSTYLE,
+                                  style | WS_EX_TOOLWINDOW)
+        return True
+    except Exception:
+        return False
 
 
 def start_drag(bot):
@@ -329,6 +464,30 @@ def set_autostart(enabled):
         return True
     except Exception:
         return False
+
+
+def focus_window(hwnd):
+    """Отдаёт окну фокус: без этого печатать в облачко некуда."""
+    if not hwnd:
+        return False
+    target = wintypes.HWND(hwnd)
+    fg = user32.GetForegroundWindow()
+    if fg == hwnd:
+        return True
+    tid_fg = user32.GetWindowThreadProcessId(wintypes.HWND(fg), None) if fg else 0
+    tid_me = kernel32.GetCurrentThreadId()
+    attached = False
+    try:
+        if tid_fg and tid_fg != tid_me:
+            attached = bool(user32.AttachThreadInput(tid_me, tid_fg, True))
+        user32.SetForegroundWindow(target)
+        user32.SetFocus(target)
+    except Exception:
+        pass
+    finally:
+        if attached:
+            user32.AttachThreadInput(tid_me, tid_fg, False)
+    return user32.GetForegroundWindow() == hwnd
 
 
 def activate(bot):

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<title>Т.И.М.</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; background: #000; overflow: hidden;
+    font-family: ui-monospace, "Consolas", "Menlo", monospace;
+    user-select: none; -webkit-user-select: none;
+  }
+  /* облачко: тело + хвостик. Форму окна задаёт регион, низ слева и справа
+     от хвостика просто не существует. */
+  #bubble {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; flex-direction: column;
+    padding: 9px 11px 7px;
+    border-radius: 14px;
+    background: #FCFDFB;
+    box-shadow: inset 0 0 0 1.5px #C9BFA8;
+  }
+  #hud {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 5px;
+    margin-bottom: 5px; padding: 0 30px 4px 0;
+    border-bottom: 1px dashed #E4DDCB;
+    font-size: 12px; color: #5E7A63; cursor: pointer;
+  }
+  #hud .grow { flex: 1; }
+  #hud .stat { display: inline-flex; align-items: center; gap: 2px; }
+  #hud .stat b { font-weight: 700; }
+  #s-batt b { color: #5B87B5; }
+  #s-hp b { color: #C4645A; }
+  #s-sleep b { color: #6F8F5C; }
+  #hud.low #s-batt b, #hud.low #s-hp b, #hud.low #s-sleep b { color: #B4453C; }
+  #text {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding-right: 14px;
+    color: #22303F; font-size: 13px; line-height: 1.36;
+    white-space: pre-line; word-break: break-word;
+  }
+  #text::-webkit-scrollbar { width: 5px; }
+  #text::-webkit-scrollbar-thumb { background: #C9BFA8; border-radius: 3px; }
+  #text.thinking { color: #6B7A8A; font-style: italic; }
+  #text.thinking::after {
+    content: ""; animation: dots 1.2s steps(4, end) infinite; font-weight: 700;
+  }
+  @keyframes dots {
+    0% { content: ""; } 25% { content: "."; } 50% { content: ".." } 75% { content: "..." }
+  }
+
+  #panel {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+    margin-top: 6px; padding-top: 6px;
+    border-top: 1px dashed #D3CBB8;
+  }
+  #panel > span { color: #5E7A63; font-size: 14px; }
+  #q {
+    flex: 1; min-width: 0; height: 30px;
+    padding: 0 7px;
+    border: 1.5px solid #D6D0C0; border-radius: 7px;
+    background: #fff; color: #22303F;
+    font: inherit; font-size: 14px; outline: none;
+  }
+  #q:focus { border-color: #5FA97A; }
+  #q::placeholder { color: #A3ADB6; }
+  #panel button {
+    flex: 0 0 auto; width: 30px; height: 30px;
+    border: 0; border-radius: 7px;
+    background: #E7EFE6; color: #3A6B4A;
+    font: inherit; font-size: 14px; font-weight: 700;
+    cursor: pointer;
+  }
+  #panel button:hover { background: #D8E8DA; }
+  #panel button:active { transform: scale(0.94); }
+
+  .hints { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; margin-top: 5px; }
+  .hints .grow { flex: 1; }
+  .hints button {
+    padding: 3px 8px;
+    border: 1px solid #D3CBB8; border-radius: 9px;
+    background: #F3F6F1; color: #4A6B52;
+    font: inherit; font-size: 11px; cursor: pointer;
+  }
+  .hints button:hover { background: #E7EFE6; border-color: #5FA97A; }
+  .hints button.ico {
+    position: relative;
+    width: 21px; height: 21px; padding: 0;
+    border-radius: 50%;
+    font-size: 11px; line-height: 1;
+  }
+  .hints button.ico.off { opacity: 0.45; }
+  .hints button.ico svg { display: block; margin: auto; }
+
+  #menu {
+    display: none;
+    position: absolute; right: 6px; bottom: 34px;
+    min-width: 150px; max-height: 152px; overflow-y: auto;
+    padding: 5px;
+    border: 1.5px solid #C9BFA8; border-radius: 10px;
+    background: #FCFDFB; box-shadow: 0 3px 10px rgba(30, 45, 60, 0.18);
+  }
+  #menu.on { display: block; }
+  #menu button {
+    display: block; width: 100%; margin: 0; padding: 2px 8px;
+    border: 0; border-radius: 5px;
+    background: transparent; color: #4A6B52;
+    font: inherit; font-size: 11px; line-height: 1.2; text-align: left; cursor: pointer;
+  }
+  #menu button:hover { background: #E7EFE6; color: #22303F; }
+
+  #close {
+    position: absolute; right: 5px; top: 5px;
+    width: 22px; height: 22px;
+    border: 0; border-radius: 50%;
+    background: rgba(30, 45, 60, 0.07); color: #6B7A8A;
+    font: inherit; font-size: 14px; line-height: 1; cursor: pointer;
+  }
+  #close:hover { background: rgba(30, 45, 60, 0.15); color: #22303F; }
+
+  #quit { display: flex; align-items: center; justify-content: center; }
+  #quit:hover { background: rgba(180, 69, 60, 0.18); border-color: #B4453C; color: #8E2F24; }
+  #quit.armed { background: #F3C4BE; border-color: #B4453C; color: #8E2F24; }
+
+  #tail {
+    display: none;
+  }
+</style>
+</head>
+<body>
+ <div id="bubble">
+  <div id="hud" title="Нажми — покажу все показатели">
+   <span id="lvl">ур.1</span><span>·</span><span id="coins">¤0</span>
+   <span class="grow"></span>
+   <span id="s-batt" class="stat" title="Батарея">⚡<b>100</b></span>
+   <span id="s-hp" class="stat" title="Здоровье">♥<b>100</b></span>
+   <span id="s-sleep" class="stat" title="Сон">☾<b>100</b></span>
+  </div>
+  <div id="text"></div>
+  <div id="panel">
+   <span>&gt;</span>
+   <input id="q" placeholder="спросить…" autocomplete="off">
+   <button id="send" title="Спросить">→</button>
+   <button id="login" title="Войти в Алису">⌗</button>
+  </div>
+  <div class="hints">
+   <button data-q="weather">погода</button>
+   <button data-q="joke">шутка</button>
+   <span class="grow"></span>
+   <button id="quit" class="ico" title="Выход" aria-label="Выход">
+    <svg width="13" height="13" viewBox="0 0 10 10" aria-hidden="true">
+     <path d="M5 1.1v3.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+     <path d="M2.7 2.5a3.7 3.7 0 1 0 4.6 0" stroke="currentColor" stroke-width="1.3"
+           stroke-linecap="round" fill="none"/>
+    </svg>
+   </button>
+   <button id="mbtn" class="ico" title="Меню">≡</button>
+   <button id="sleep" class="ico" title="Сон">☾</button>
+   <button id="sound" class="ico" title="Звук">🔊</button>
+  </div>
+  <div id="menu" role="menu"></div>
+ </div>
+ <button id="close" title="Скрыть">×</button>
+<script src="js/audio.js"></script>
+<script>
+(function () {
+  var busy = false;
+  var GREETING = "Спроси что-нибудь — Алиса ответит.";
+  var JOKES = [
+    "Программист ставит на ночь два стакана: один с водой, второй пустой — на всякий случай.",
+    "— Робот, ты умеешь шутить? — Умею. Шутка была вчера.",
+    "Учёные выяснили: если долго смотреть в монитор, он начинает смотреть в ответ."
+  ];
+
+  function $(id) { return document.getElementById(id); }
+  function api() { return (window.pywebview && window.pywebview.api) || null; }
+
+  function setText(text, thinking) {
+    $("text").textContent = text || "";
+    $("text").classList.toggle("thinking", !!thinking);
+    $("text").scrollTop = $("text").scrollHeight;
+  }
+
+  function setBusy(on) {
+    busy = on;
+    $("send").textContent = on ? "■" : "→";
+  }
+
+  function hide() {
+    var a = api();
+    if (a && a.hide_cloud) a.hide_cloud();
+  }
+
+  async function ask() {
+    var q = $("q");
+    var text = q.value.trim();
+    if (game.kind === "guess" || game.kind === "riddle") {
+      if (!text) return;
+      q.value = "";
+      if (game.kind === "guess") guessStep(text); else riddleStep();
+      return;
+    }
+    if (!text || busy) return;
+    setBusy(true);
+    setText("…", true);
+    chirp("think");
+    var a = api();
+    var answer = "Нет связи с приложением.";
+    if (a && a.ask) {
+      try {
+        answer = await Promise.race([
+          a.ask(text),
+          new Promise(function (res) {
+            setTimeout(function () { res("Алиса не ответила за 45 секунд."); }, 45000);
+          })
+        ]);
+      } catch (e) {
+        answer = "Не получилось спросить Алису.";
+        chirp("bad");
+      }
+    }
+    if (!busy) return;
+    setBusy(false);
+    q.value = "";
+    setText(answer || "Алиса промолчала.", false);
+    chirp(answer ? "ok" : "bad");
+  }
+
+  function cancel() {
+    if (!busy) return false;
+    var a = api();
+    if (a && a.cancel) { try { a.cancel(); } catch (e) { /* уже не важно */ } }
+    setBusy(false);
+    setText("Хорошо, отменил.", false);
+    return true;
+  }
+
+  function weatherWord(code) {
+    if (code === 0) return "ясно";
+    if (code <= 3) return "переменная облачность";
+    if (code <= 48) return "туман";
+    if (code <= 67) return "дождь";
+    if (code <= 77) return "снег";
+    if (code <= 82) return "ливень";
+    return "гроза";
+  }
+
+  async function quick(kind) {
+    if (busy) return;
+    if (kind === "time") {
+      var now = new Date();
+      setText("Сейчас " + now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) + ".", false);
+      return;
+    }
+    if (kind === "joke") {
+      setText(JOKES[Math.floor(Math.random() * JOKES.length)], false);
+      return;
+    }
+    setText("Смотрю погоду…", true);
+    try {
+      var res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=55.75&longitude=37.62"
+        + "&current=temperature_2m,weather_code&timezone=Europe/Moscow");
+      var data = await res.json();
+      var t = Math.round(data.current.temperature_2m);
+      setText("Сейчас " + t + "°, " + weatherWord(data.current.weather_code) + ".", false);
+    } catch (e) {
+      setText("Не смог узнать погоду — нет сети.", false);
+    }
+  }
+
+  function setStat(id, value) {
+    var el = $(id);
+    if (el) el.querySelector("b").textContent = Math.round(+value || 0);
+  }
+
+  function paintStats(st) {
+    if (!st) return;
+    $("lvl").textContent = "ур." + (1 + Math.floor((st.xp || 0) / 100));
+    $("coins").textContent = "¤" + (st.coins || 0);
+    setStat("s-batt", st.batt);
+    setStat("s-hp", st.hp);
+    setStat("s-sleep", st.sleep);
+    $("hud").classList.toggle("low",
+      (st.batt || 0) < 20 || (st.hp || 0) < 30 || (st.sleep || 0) < 15);
+  }
+
+  function statReport() {
+    var a = api();
+    if (!a || !a.stats) return;
+    a.stats().then(function (st) {
+      var lvl = 1 + Math.floor((st.xp || 0) / 100);
+      var left = 100 - (st.xp || 0) % 100;
+      setText("Батарея " + st.batt + " · здоровье " + st.hp + " · сон " + st.sleep
+        + "\nУровень " + lvl + ", опыт " + ((st.xp || 0) % 100) + "/100 (ещё " + left + ")"
+        + "\nМонеты: " + st.coins + ". Корм — раз в 10 минут.", false);
+    });
+  }
+
+  function act(kind) {
+    var a = api();
+    if (kind === "charge" && a && a.charge) {
+      a.charge().then(function (res) {
+        if (res && res.stats) paintStats(res.stats);
+        if (res && res.ok) {
+          setText("Зарядился. Батарея " + ((res.stats && res.stats.batt) || 100) + "%.", false);
+          chirp("ok");
+        } else {
+          setText("Зарядка будет доступна через " + Math.ceil(((res && res.wait) || 0) / 60) + " мин.", false);
+          chirp("bad");
+        }
+      }, function () { /* без зарядки */ });
+      return;
+    }
+    if (kind === "fly" && a && a.fly) {
+      a.fly().then(function (on) {
+        setText(on ? "Отпустил колёса — лечу!" : "Приземлился.", false);
+        chirp(on ? "ok" : "blip");
+      }, function () { /* без полёта */ });
+      return;
+    }
+    if (kind === "guess") { startGuess(); return; }
+    if (kind === "fact") { startFact(); return; }
+    if (kind === "riddle") { startRiddle(); return; }
+    if (!a) return;
+    if (kind === "feed" && a.feed) {
+      a.feed().then(function (res) {
+        if (res && res.stats) paintStats(res.stats);
+        if (res && res.ok) chirp("ok");
+      }, function () { /* без кормления */ });
+      return;
+    }
+    if (kind === "dance" && a.dance) {
+      a.dance();
+      chirp("blip");
+    }
+  }
+
+  /* ---------------------------------------------------- лавка и сброс */
+
+  var SHOP_TITLES = { hat: "шляпа", glasses: "очки", scarf: "шарф" };
+
+  function shop(item) {
+    var a = api();
+    if (!a || !a.buy) return;
+    a.buy(item).then(function (res) {
+      if (res && res.stats) paintStats(res.stats);
+      if (res && res.ok) {
+        setText("Купил: " + (SHOP_TITLES[item] || item) + ".", false);
+        chirp("coin");
+      } else if (res && res.why === "owned") {
+        setText("Такое уже есть.", false);
+      } else if (res && res.why === "coins") {
+        setText("Не хватает монет: нужно " + res.need + " ¤.", false);
+      } else {
+        setText("Не получилось купить.", false);
+      }
+    }, function () { setText("Не получилось купить.", false); });
+  }
+
+  function fast(kind) {
+    var a = api();
+    if (!a || !a.reset_cooldown) return;
+    a.reset_cooldown(kind).then(function (res) {
+      if (res && res.stats) paintStats(res.stats);
+      if (res && (res.ok || res.why === "ready")) { act(kind); return; }
+      if (res && res.why === "coins") {
+        setText("Сброс стоит 2 ¤ — монет не хватает.", false);
+      } else {
+        setText("Не получилось.", false);
+      }
+    }, function () { setText("Не получилось.", false); });
+  }
+
+  /* ---------------------------------------------------- текстовые игры */
+
+  var game = { kind: null, secret: 0, tries: 0, answer: "" };
+
+  var FACTS = [
+    "У осьминога три сердца и голубая кровь.",
+    "Мёд не портится: в египетских гробницах находили съедобный мёд.",
+    "Первая компьютерная мышь была деревянной.",
+    "Свет от Солнца летит до Земли восемь минут.",
+    "У улитки около 14 000 зубов на языке.",
+    "Бананы растут ягодами, а малина — нет.",
+    "В космосе нельзя плакать: слёзы не капают, а собираются в шар.",
+    "Первый в мире программист — Ада Лавлейс, она писала алгоритмы в 1843 году.",
+    "У жирафа столько же шейных позвонков, сколько у человека — семь.",
+    "Стрижи спят в воздухе, не садясь на землю.",
+    "Байкал — самое глубокое озеро мира: около 1642 метров.",
+    "Один день на Венере длиннее, чем весь год на Венере.",
+    "Пчёлы различают лица людей.",
+    "Мозг забирает примерно пятую часть энергии тела.",
+    "Первые Олимпийские игры прошли в 776 году до нашей эры.",
+    "У пингвинов есть колени, просто они спрятаны под перьями.",
+    "Медузы старше динозавров примерно на 400 миллионов лет.",
+    "В 1932 году в Австралии официально воевали с кенгуру.",
+    "Самая длинная река Европы — Волга.",
+    "Бумага была изобретена в Китае, а первая печатная книга появилась в IX веке.",
+    "У кошки в каждом ухе около 32 мышц — потому она слышит то, чего мы не слышим."
+  ];
+
+  var RIDDLES = [
+    ["Висит груша — нельзя скушать.", "Лампочка"],
+    ["Зимой и летом одним цветом.", "Ёлка"],
+    ["Не лает, не кусает, а в дом не пускает.", "Замок"],
+    ["Сидит дед во сто шуб одет, кто его раздевает — тот слёзы проливает.", "Лук"],
+    ["Два конца, два кольца, посередине гвоздик.", "Ножницы"],
+    ["Сто одёжек и все без застёжек.", "Капуста"],
+    ["Что можно приготовить, но нельзя съесть?", "Уроки"],
+    ["Чем больше из неё берёшь, тем больше она становится.", "Яма"],
+    ["Без рук, без ног, а ворота отворяет.", "Ветер"],
+    ["Что идёт, не двигаясь с места?", "Время"],
+    ["Зубы есть, а рта нет.", "Пила"],
+    ["В воде живёт, без воды умрёт.", "Рыба"],
+    ["Висит на стене, а время говорит.", "Часы"],
+    ["Стоит Антошка на одной ножке.", "Гриб"],
+    ["Что можно увидеть с закрытыми глазами?", "Сон"],
+    ["Белое поле, чёрное семя: кто его сеет, тот разумеет.", "Книга"],
+    ["Не вода и не земля — корабль не плывёт и ноги не идут.", "Болото"]
+  ];
+
+  function plural(n, one, few, many) {
+    var mod10 = n % 10, mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+    return many;
+  }
+
+  function gameReset() {
+    game = { kind: null, secret: 0, tries: 0, answer: "" };
+    $("q").placeholder = "спросить…";
+  }
+
+  function rewardCoins(n) {
+    var a = api();
+    if (!a || !a.add_coins) return;
+    a.add_coins(n).then(paintStats).catch(function () {});
+  }
+
+  function startGuess() {
+    game = { kind: "guess", secret: 1 + Math.floor(Math.random() * 100), tries: 0, answer: "" };
+    $("q").placeholder = "число 1–100…";
+    setText("Загадал число от 1 до 100. Называй — скажу «больше» или «меньше».", false);
+    $("q").focus();
+    chirp("think");
+  }
+
+  function guessStep(raw) {
+    var n = parseInt(raw, 10);
+    if (!n || n < 1 || n > 100) {
+      setText("Нужно целое число от 1 до 100.", false);
+      return;
+    }
+    game.tries += 1;
+    if (n === game.secret) {
+      var tries = game.tries;
+      gameReset();
+      setText("Угадал за " + tries + " " + plural(tries, "ход", "хода", "ходов")
+        + "! Держи 3 монеты.", false);
+      chirp("ok");
+      rewardCoins(3);
+      return;
+    }
+    setText(n < game.secret ? "Больше." : "Меньше.", false);
+    chirp("blip");
+  }
+
+  function startFact() {
+    gameReset();
+    setText(FACTS[Math.floor(Math.random() * FACTS.length)], false);
+    chirp("blip");
+  }
+
+  function startRiddle() {
+    var riddle = RIDDLES[Math.floor(Math.random() * RIDDLES.length)];
+    game = { kind: "riddle", secret: 0, tries: 0, answer: riddle[1] };
+    $("q").placeholder = "ответ…";
+    setText("Загадка: " + riddle[0] + "\n\nНапиши что-нибудь в поле — покажу ответ.", false);
+    $("q").focus();
+    chirp("think");
+  }
+
+  function riddleStep() {
+    var answer = game.answer;
+    gameReset();
+    setText("Ответ: " + answer, false);
+    chirp("ok");
+  }
+
+  window.cloud = {
+    show: function (text, thinking) {
+      // Пустой текст — это «показать окно», а не «стереть ответ».
+      var box = $("text");
+      if (!text && !thinking && (box.textContent || "").trim()) {
+        box.classList.remove("thinking");
+        return;
+      }
+      setText(text || GREETING, thinking);
+    },
+    focusInput: function () { var q = $("q"); q.focus(); q.select(); },
+    stats: paintStats,
+    chirp: function (kind) { chirp(kind || "blip"); },
+    setSound: setSoundIcon,
+    menu: function (on) {
+      var m = $("menu");
+      if (on === undefined) m.classList.toggle("on");
+      else m.classList.toggle("on", !!on);
+    }
+  };
+  setText(GREETING, false);
+
+  $("send").addEventListener("click", function () { if (busy) cancel(); else ask(); });
+  $("q").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); ask(); }
+  });
+  $("login").addEventListener("click", async function () {
+    var a = api();
+    if (!a || !a.login) return;
+    var res = await a.login();
+    if (res === "failed") setText("Не смог открыть окно Алисы.", false);
+  });
+  document.querySelectorAll(".hints button[data-q]").forEach(function (btn) {
+    btn.addEventListener("click", function () { quick(btn.dataset.q); });
+  });
+  document.querySelectorAll(".hints button[data-act]").forEach(function (btn) {
+    btn.addEventListener("click", function () { act(btn.dataset.act); });
+  });
+  $("hud").addEventListener("click", statReport);
+
+  var MENU_ITEMS = [
+    ["зарядить", function () { act("charge"); }],
+    ["покормить", function () { act("feed"); }],
+    ["зарядка сразу · 2¤", function () { fast("charge"); }],
+    ["корм сразу · 2¤", function () { fast("feed"); }],
+    ["танец", function () { act("dance"); }],
+    ["полёт", function () { act("fly"); }],
+    ["угадай число", function () { act("guess"); }],
+    ["интересный факт", function () { act("fact"); }],
+    ["загадка", function () { act("riddle"); }],
+    ["шляпа · 15¤", function () { shop("hat"); }],
+    ["очки · 10¤", function () { shop("glasses"); }],
+    ["шарф · 8¤", function () { shop("scarf"); }],
+    ["показатели", statReport]
+  ];
+
+  function buildMenu() {
+    var m = $("menu");
+    m.innerHTML = "";
+    MENU_ITEMS.forEach(function (item) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = item[0];
+      b.addEventListener("click", function () {
+        m.classList.remove("on");
+        item[1]();
+      });
+      m.appendChild(b);
+    });
+  }
+
+  $("mbtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    $("menu").classList.toggle("on");
+  });
+  document.addEventListener("click", function (e) {
+    var m = $("menu");
+    if (!m.classList.contains("on")) return;
+    if (m.contains(e.target) || e.target === $("mbtn")) return;
+    m.classList.remove("on");
+  });
+  buildMenu();
+  function setSoundIcon(on) {
+    $("sound").textContent = on ? "🔊" : "🔇";
+    $("sound").classList.toggle("off", !on);
+    muted = !on;  // бипы и голос гасятся одним тумблером
+  }
+  $("sound").addEventListener("click", async function () {
+    var a = api();
+    if (!a || !a.sound_toggle) return;
+    try { setSoundIcon(await a.sound_toggle()); } catch (e) { /* без звука */ }
+  });
+  $("sleep").addEventListener("click", function () {
+    var a = api();
+    if (a && a.sleep) a.sleep();
+    hide();
+  });
+  $("close").addEventListener("click", hide);
+  var quitArmed = 0;
+  $("quit").addEventListener("click", function () {
+    var a = api();
+    if (!a || !a.quit) return;
+    if (Date.now() < quitArmed) { a.quit(); return; }
+    quitArmed = Date.now() + 3000;
+    $("quit").classList.add("armed");
+    setText("Выключить Т.И.М.? Нажми ⏻ ещё раз — или подожди три секунды.", false);
+    setTimeout(function () { quitArmed = 0; $("quit").classList.remove("armed"); }, 3000);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (!cancel()) hide();
+  });
+
+  window.addEventListener("pywebviewready", function () {
+    var a = api();
+    if (a && a.cloud_ready) a.cloud_ready();
+    if (a && a.sound_state) {
+      a.sound_state().then(setSoundIcon).catch(function () { /* тишина */ });
+    }
+    if (a && a.stats) {
+      a.stats().then(paintStats).catch(function () { /* без шкал */ });
+    }
+  });
+})();
+</script>
+</body></html>

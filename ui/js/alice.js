@@ -80,6 +80,8 @@ document.addEventListener("keydown", function (e) {
   const menu = document.getElementById("menu");
   if (menu && menu.classList.contains("on")) return; // меню закрывается само
   if (cancelAsk()) { e.preventDefault(); return; }
+  const a = API();
   if ($("q").value) { $("q").value = ""; return; }
-  if (panelOpen) setPanel(false);
+  if (panelOpen) { setPanel(false); return; }
+  if (a && a.hide_cloud) a.hide_cloud();
 });

@@ -89,13 +89,14 @@ html, body {
 /* ---------- лицо ---------- */
 
 .face {
-  flex: 0 0 auto;
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px 0;
+  padding: 4px 8px;
 }
-.face svg { display: block; height: 84px; filter: drop-shadow(0 0 6px rgba(90, 255, 150, 0.45)); }
+.face svg { display: block; height: 110px; filter: drop-shadow(0 0 6px rgba(90, 255, 150, 0.45)); }
 
 #eyes { transition: opacity 0.18s ease; }
 #eyes .eye {
@@ -135,32 +136,10 @@ body.face-flat #mouth > #face-flat,
 body.face-o #mouth > #face-o,
 body.face-tongue #mouth > #face-tongue { display: block; }
 
-/* ---------- текст на экране ---------- */
+/* ---------- текст ушёл в отдельное облачко ---------- */
 
-#bubble {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 4px 10px 6px;
-  color: #9BFFC4;
-  font-size: 13px;
-  line-height: 1.36;
-  white-space: pre-line;
-  word-break: break-word;
-}
-#bubble-text { white-space: pre-line; }
-#bubble.thinking { color: #7CFFB2; font-style: italic; letter-spacing: 0.06em; }
-#bubble.thinking #bubble-text::after {
-  content: "";
-  animation: dots 1.2s steps(4, end) infinite;
-  font-weight: 700;
-}
-@keyframes dots {
-  0% { content: ""; } 25% { content: "."; } 50% { content: ".." } 75% { content: "..." }
-}
-#bubble::-webkit-scrollbar { width: 5px; }
-#bubble::-webkit-scrollbar-thumb { background: #2A5A3A; border-radius: 3px; }
+#bubble { display: none; }
+
 
 /* ---------- ввод ---------- */
 

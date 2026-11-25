@@ -44,6 +44,16 @@ function chirp(kind) {
     setTimeout(() => blip(1180, 0.16, "sine", 1560, 0.11), 240);
     return;
   }
+  if (kind === "bad") {
+    blip(340, 0.14, "square", 160, 0.12);
+    setTimeout(() => blip(210, 0.18, "square", 120, 0.10), 150);
+    return;
+  }
+  if (kind === "coin") {
+    blip(1180, 0.05, "square", 1180, 0.10);
+    setTimeout(() => blip(1560, 0.10, "square", 1560, 0.10), 70);
+    return;
+  }
   const n = 2 + Math.floor(Math.random() * 3);
   for (let i = 0; i < n; i += 1) {
     const base = 520 + Math.random() * 900;

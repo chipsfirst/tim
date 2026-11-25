@@ -68,26 +68,21 @@ if (bubbleBox) {
 }
 
 function showAnswer(text, thinking) {
-  $("bubble-text").textContent = text;
-  $("bubble").classList.add("show");
-  $("bubble").classList.toggle("thinking", !!thinking);
-  try { localStorage.setItem("tim-last-answer", String(text || "").slice(0, 12000)); } catch (e) {}
+  // Ответ показывает отдельное окно-облачко над монитором: на экране
+  // текст больше не живёт, поэтому только передаём его в Python.
+  const value = String(text || "").slice(0, 12000);
   try {
     const api = API();
-    if (api && api.save_last) api.save_last(String(text || "").slice(0, 12000));
-    if (api && api.log_js) api.log_js("save_last: " + String(text || "").length + " chars", "", 0, "info");
+    if (api && api.say) api.say(value, !!thinking);
+    if (api && api.save_last) api.save_last(value);
+    if (api && api.log_js) api.log_js("save_last: " + value.length + " chars", "", 0, "info");
   } catch (e) {}
+  try { localStorage.setItem("tim-last-answer", value); } catch (e) {}
   if (!thinking && voiceOn) {
     const api = API();
     if (api && api.speak) api.speak(String(text).slice(0, 400)).catch(() => {});
   }
-  if (thinking) {
-    text = "Алиса думает";
-    window.__restored = false;
-  }
-  const box = $("bubble");
-  box.scrollTop = box.scrollHeight;
-  reportRegions();
+  if (thinking) window.__restored = false;
 }
 
 /* ---------------------------------------------- реплики в простое */
@@ -385,6 +380,10 @@ if (deviceEl) {
   deviceEl.addEventListener("click", (e) => {
     if (e.target.closest("button")) return;
     if (gameClick()) return;
+    try {
+      const a = API();
+      if (a && a.hide_cloud) a.hide_cloud(); // клик по монитору убирает облачко
+    } catch (err) { /* не критично */ }
     const g = GESTURES[Math.floor(Math.random() * GESTURES.length)];
     gesture(g[0], g[1]);
     chirp();
