@@ -270,7 +270,7 @@ def set_click_through(win, ignore):
     return None
 
 
-RADIUS = 18
+RADIUS = 16
 
 
 def round_corners(hwnd):

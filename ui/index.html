@@ -4,10 +4,28 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
- <!-- облачко над монитором: ответ и поле ввода -->
- <div id="cloud">
-  <div id="bubble" class="log">
-   <span id="bubble-text"></span>
+ <div class="device case">
+  <div class="screen">
+   <div class="bar" id="bar"><span id="led" class="led"></span><span id="bar-text"></span></div>
+   <div class="face">
+     <svg viewBox="40 0 140 60" width="100%" height="88" shape-rendering="crispEdges">
+       <g id="eyes">
+         <g class="eye"><rect x="52" y="10" width="30" height="22" fill="#0E3A1B"/>
+           <rect class="pupil" x="61" y="16" width="11" height="10" fill="#66FF9E"/></g>
+         <g class="eye"><rect x="138" y="10" width="30" height="22" fill="#0E3A1B"/>
+           <rect class="pupil" x="147" y="16" width="11" height="10" fill="#66FF9E"/></g>
+       </g>
+       <g id="mouth" fill="#3CFF86">
+         <g id="face-smile"><rect x="92" y="38" width="4" height="4"/><rect x="96" y="42" width="28" height="4"/><rect x="124" y="38" width="4" height="4"/></g>
+         <g id="face-open"><rect x="98" y="36" width="24" height="3"/><rect x="96" y="39" width="28" height="2"/><rect x="96" y="41" width="28" height="2"/><rect x="98" y="43" width="24" height="3"/><rect x="100" y="39" width="20" height="4" fill="#0E3A1B"/></g>
+         <g id="face-wide"><rect x="84" y="38" width="52" height="3"/><rect x="88" y="41" width="44" height="3"/><rect x="92" y="44" width="36" height="2"/></g>
+         <g id="face-flat"><rect x="96" y="40" width="28" height="4"/></g>
+         <g id="face-o"><rect x="100" y="36" width="20" height="10" fill="#0E3A1B"/><rect x="98" y="38" width="2" height="6"/><rect x="120" y="38" width="2" height="6"/></g>
+         <g id="face-tongue"><rect x="92" y="38" width="4" height="4"/><rect x="96" y="42" width="28" height="4"/><rect x="124" y="38" width="4" height="4"/><rect x="104" y="45" width="10" height="5" fill="#FF6B8A"/></g>
+       </g>
+     </svg>
+   </div>
+   <div id="bubble" class="log"><span id="bubble-text"></span></div>
    <div id="panel" class="entry">
     <span>&gt;</span>
     <input id="q" placeholder="спросить…" autocomplete="off">
@@ -15,56 +33,25 @@
     <button id="login" title="Войти в Алису">⌗</button>
     <button id="collapse" title="Свернуть">⤡</button>
    </div>
-  </div>
- </div>
-
- <!-- монитор -->
- <div class="device">
-  <div class="case">
-   <div class="screen">
-    <div class="bar" id="bar"><span id="led" class="led"></span><span id="bar-text"></span></div>
-    <div class="face">
-      <svg viewBox="40 0 140 60" width="100%" height="96" shape-rendering="crispEdges">
-        <g id="eyes">
-          <g class="eye"><rect x="52" y="10" width="30" height="22" fill="#0E3A1B"/>
-            <rect class="pupil" x="61" y="16" width="11" height="10" fill="#66FF9E"/></g>
-          <g class="eye"><rect x="138" y="10" width="30" height="22" fill="#0E3A1B"/>
-            <rect class="pupil" x="147" y="16" width="11" height="10" fill="#66FF9E"/></g>
-        </g>
-        <g id="mouth" fill="#3CFF86">
-          <g id="face-smile"><rect x="92" y="38" width="4" height="4"/><rect x="96" y="42" width="28" height="4"/><rect x="124" y="38" width="4" height="4"/></g>
-          <g id="face-open"><rect x="98" y="36" width="24" height="3"/><rect x="96" y="39" width="28" height="2"/><rect x="96" y="41" width="28" height="2"/><rect x="98" y="43" width="24" height="3"/><rect x="100" y="39" width="20" height="4" fill="#0E3A1B"/></g>
-          <g id="face-wide"><rect x="84" y="38" width="52" height="3"/><rect x="88" y="41" width="44" height="3"/><rect x="92" y="44" width="36" height="2"/></g>
-          <g id="face-flat"><rect x="96" y="40" width="28" height="4"/></g>
-          <g id="face-o"><rect x="100" y="36" width="20" height="10" fill="#0E3A1B"/><rect x="98" y="38" width="2" height="6"/><rect x="120" y="38" width="2" height="6"/></g>
-          <g id="face-tongue"><rect x="92" y="38" width="4" height="4"/><rect x="96" y="42" width="28" height="4"/><rect x="124" y="38" width="4" height="4"/><rect x="104" y="45" width="10" height="5" fill="#FF6B8A"/></g>
-        </g>
-      </svg>
-    </div>
-    <div class="hints">
-      <button data-ask="погода">погода</button>
-      <button data-ask="шутка">шутка</button>
-      <button data-ask="расскажи про космос">космос</button>
-      <button data-ask="как дела?">как дела?</button>
-    </div>
-    <div id="menu" role="menu"></div>
-    <canvas id="tw" width="190" height="132"></canvas>
-    <button id="tx" title="Выйти из игры">✕</button>
-    <div id="caret"></div>
+   <div class="hints">
+    <button data-ask="погода">погода</button>
+    <button data-ask="шутка">шутка</button>
+    <button data-ask="расскажи про космос">космос</button>
+    <button data-ask="как дела?">как дела?</button>
    </div>
-   <div class="brand">Т.И.М.</div>
+   <div id="menu" role="menu"></div>
+   <canvas id="tw" width="190" height="132"></canvas>
+   <button id="tx" title="Выйти из игры">✕</button>
+   <div id="caret"></div>
   </div>
-  <div class="stand"></div>
-  <div class="base"></div>
- </div>
-
- <!-- кнопки под монитором -->
- <div class="keys">
-  <button id="power" title="Выход">⏻</button>
-  <button id="mbtn" title="Меню">≡</button>
-  <button id="sleepbtn" title="Сон">☾</button>
-  <button id="sound" title="Звук">🔊</button>
-  <button id="widebtn" title="Развернуть">⤢</button>
+  <div class="brand">Т.И.М.</div>
+  <div class="keys">
+   <button id="power" title="Выход">⏻</button>
+   <button id="mbtn" title="Меню">≡</button>
+   <button id="sleepbtn" title="Сон">☾</button>
+   <button id="sound" title="Звук">🔊</button>
+   <button id="widebtn" title="Развернуть">⤢</button>
+  </div>
  </div>
 
  <div id="floppy-mini" title="Открыть">⛁</div>

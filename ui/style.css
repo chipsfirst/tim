@@ -1,12 +1,11 @@
-/* Т.И.М. — монитор старого компьютера, над ним облачко, под ним кнопки. */
+/* Т.И.М. — окно целиком это монитор: корпус, кинескоп, кнопки на корпусе. */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
   width: 100%;
   height: 100%;
-  /* Фон окна непрозрачный: прозрачность на Windows нестабильна и вместо неё
-     проступало серое полотно. Тёмный фон читается как часть оформления. */
+  /* фон под корпусом не виден: корпус занимает окно целиком */
   background: #14150D;
   overflow: hidden;
   user-select: none;
@@ -15,168 +14,44 @@ html, body {
   cursor: default;
 }
 
-body {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 6px 3px;
-}
-
-/* ---------- облачко ---------- */
-
-#cloud {
-  position: relative;
-  flex: 0 0 auto;
-  width: 100%;
-}
-/* хвостик живёт в обёртке: внутри прокручиваемой области он давал полосу */
-#cloud::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 13px;
-  height: 13px;
-  margin-left: -6.5px;
-  border-radius: 2px;
-  background: #FCFDFB;
-  transform: rotate(45deg);
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  pointer-events: none;
-}
-#cloud:has(#bubble.show)::after { opacity: 1; }
-
-#bubble {
-  position: relative;
-  flex: 0 0 auto;
-  width: 100%;
-  max-height: 132px;
-  /* монитор с кнопками занимает ~270px — облачко берёт остаток окна */
-  max-height: calc(100vh - 272px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 8px 10px 7px;
-  border: 1.5px solid #C9BFA8;
-  border-radius: 14px;
-  background: #FCFDFB;
-  color: #22303F;
-  font-size: 14px;
-  line-height: 1.38;
-  white-space: normal;
-  box-shadow: 0 8px 20px rgba(25, 35, 45, 0.18);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(7px) scale(0.97);
-  transform-origin: 50% 100%;
-  transition: opacity 0.18s ease, transform 0.2s ease;
-  z-index: 6;
-}
-#bubble.show { opacity: 1; pointer-events: auto; transform: none; }
-
-#bubble::after {
-  content: none;
-}
-#bubble.thinking { color: #6B7A8A; font-style: italic; }
-#bubble-text { white-space: pre-line; }
-#bubble.thinking #bubble-text::after {
-  content: "";
-  animation: dots 1.2s steps(4, end) infinite;
-  font-weight: 700;
-}
-@keyframes dots {
-  0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; }
-}
-#bubble::-webkit-scrollbar { width: 6px; }
-#bubble::-webkit-scrollbar-track { background: transparent; }
-#bubble::-webkit-scrollbar-thumb { background: #C9BFA8; border-radius: 3px; }
-
-/* ---------- поле ввода внутри облачка ---------- */
-
-#panel {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed #D3CBB8;
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  pointer-events: none;
-  transition: max-height 0.2s ease, opacity 0.16s ease;
-}
-#panel.show { max-height: 40px; opacity: 1; pointer-events: auto; }
-#panel > span { color: #5E7A63; font-size: 14px; }
-
-#q {
-  flex: 1;
-  min-width: 0;
-  height: 26px;
-  padding: 0 8px;
-  border: 1.5px solid #D6D0C0;
-  border-radius: 8px;
-  background: #fff;
-  color: #22303F;
-  font: inherit;
-  font-size: 15px;
-  outline: none;
-}
-#q:focus { border-color: #5FA97A; }
-#q::placeholder { color: #A3ADB6; }
-
-#panel button {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 8px;
-  background: #E7EFE6;
-  color: #3A6B4A;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
-}
-#panel button:hover { background: #D8E8DA; }
-#panel button:active { transform: scale(0.93); }
-#collapse { display: none; }
-body.wide #collapse { display: block; }
-
-/* ---------- корпус монитора ---------- */
-
-.device {
-  flex: 0 0 auto;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+/* ---------- корпус ---------- */
 
 .case {
-  width: 100%;
-  padding: 8px 8px 4px;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
   border: 3px solid #6B6354;
-  border-radius: 13px;
+  border-radius: 16px;
   background: linear-gradient(160deg, #F2ECDC, #B3A995);
-  box-shadow: 0 8px 18px rgba(30, 20, 10, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 6px rgba(60, 45, 25, 0.18);
 }
+
+.brand {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: #6B6354;
+}
+
+/* ---------- кинескоп ---------- */
 
 .screen {
   position: relative;
-  height: 176px;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border-radius: 8px;
   background: #071108;
-  box-shadow: inset 0 0 24px rgba(60, 255, 134, 0.18), inset 0 0 0 2px #21211A;
+  box-shadow: inset 0 0 26px rgba(60, 255, 134, 0.16), inset 0 0 0 2px #21211A;
 }
 
-/* строчная развёртка старого кинескопа */
+/* строчная развёртка */
 .screen::after {
   content: "";
   position: absolute;
@@ -187,41 +62,12 @@ body.wide #collapse { display: block; }
   opacity: 0.55;
 }
 
-.brand {
-  padding-top: 3px;
-  text-align: center;
-  font-size: 10px;
-  letter-spacing: 0.3em;
-  color: #6B6354;
-  opacity: 0.9;
-}
-
-.stand {
-  width: 54px;
-  height: 12px;
-  margin-top: -1px;
-  border-left: 2px solid #6B6354;
-  border-right: 2px solid #6B6354;
-  background: linear-gradient(180deg, #ADA28B, #8E846E);
-}
-
-.base {
-  width: 122px;
-  height: 9px;
-  border: 2px solid #6B6354;
-  border-top: 0;
-  border-radius: 0 0 7px 7px;
-  background: linear-gradient(180deg, #C9C1AE, #A79D86);
-  box-shadow: 0 5px 10px rgba(30, 20, 10, 0.22);
-}
-
-/* ---------- строка показателей ---------- */
-
 .bar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 7px;
+  padding: 4px 8px;
   border-bottom: 1px solid #143B22;
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -243,14 +89,13 @@ body.wide #collapse { display: block; }
 /* ---------- лицо ---------- */
 
 .face {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 8px 0;
-  min-height: 0;
+  padding: 4px 8px 0;
 }
-.face svg { display: block; height: 96px; filter: drop-shadow(0 0 6px rgba(90, 255, 150, 0.45)); }
+.face svg { display: block; height: 84px; filter: drop-shadow(0 0 6px rgba(90, 255, 150, 0.45)); }
 
 #eyes { transition: opacity 0.18s ease; }
 #eyes .eye {
@@ -290,9 +135,87 @@ body.face-flat #mouth > #face-flat,
 body.face-o #mouth > #face-o,
 body.face-tongue #mouth > #face-tongue { display: block; }
 
-/* ---------- быстрые вопросы на экране ---------- */
+/* ---------- текст на экране ---------- */
+
+#bubble {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 10px 6px;
+  color: #9BFFC4;
+  font-size: 13px;
+  line-height: 1.36;
+  white-space: pre-line;
+  word-break: break-word;
+}
+#bubble-text { white-space: pre-line; }
+#bubble.thinking { color: #7CFFB2; font-style: italic; letter-spacing: 0.06em; }
+#bubble.thinking #bubble-text::after {
+  content: "";
+  animation: dots 1.2s steps(4, end) infinite;
+  font-weight: 700;
+}
+@keyframes dots {
+  0% { content: ""; } 25% { content: "."; } 50% { content: ".." } 75% { content: "..." }
+}
+#bubble::-webkit-scrollbar { width: 5px; }
+#bubble::-webkit-scrollbar-thumb { background: #2A5A3A; border-radius: 3px; }
+
+/* ---------- ввод ---------- */
+
+#panel {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-top: 1px solid #143B22;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-height 0.2s ease, opacity 0.16s ease, padding 0.2s ease;
+}
+#panel.show { max-height: 36px; padding: 4px 6px; opacity: 1; pointer-events: auto; }
+#panel > span { color: #66FF9E; font-size: 13px; }
+
+#q {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: #CFFFE2;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+#q::placeholder { color: #3F6E52; }
+
+#panel button {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: #0E2415;
+  color: #9BFFC4;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#panel button:hover { background: #16331F; color: #CFFFE2; }
+#panel button:active { transform: scale(0.94); }
+#collapse { display: none; }
+body.wide #collapse { display: block; }
+
+/* ---------- быстрые вопросы ---------- */
 
 .hints {
+  flex: 0 0 auto;
   display: flex;
   gap: 4px;
   justify-content: center;
@@ -307,17 +230,16 @@ body.face-tongue #mouth > #face-tongue { display: block; }
   background: #0E2415;
   color: #9BFFC4;
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
   white-space: nowrap;
 }
 .hints button:hover { background: #16331F; border-color: #3CFF86; }
 
-/* ---------- кнопки под монитором ---------- */
+/* ---------- кнопки на корпусе ---------- */
 
 .keys {
   flex: 0 0 auto;
-  width: 100%;
   display: flex;
   gap: 5px;
   justify-content: center;
@@ -330,7 +252,7 @@ body.face-tongue #mouth > #face-tongue { display: block; }
   background: linear-gradient(180deg, #F1EBDC, #CFC7B4);
   color: #4E4838;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   cursor: pointer;
 }
@@ -365,6 +287,7 @@ body.screen-off #caret {
 }
 body.screen-off .face,
 body.screen-off .hints,
+body.screen-off #bubble,
 body.screen-off #bar-text { opacity: 0; transition: opacity 0.18s ease; }
 body.screen-off .screen { background: #030B05; }
 
@@ -411,7 +334,7 @@ body.screen-off .screen { background: #030B05; }
 #tw {
   position: absolute;
   left: 50%;
-  top: 24px;
+  top: 26px;
   transform: translateX(-50%);
   width: 190px;
   height: 132px;
@@ -426,7 +349,7 @@ body.screen-off .screen { background: #030B05; }
 #tx {
   position: absolute;
   right: 5px;
-  top: 26px;
+  top: 28px;
   z-index: 10;
   display: none;
   width: 20px;
@@ -436,7 +359,7 @@ body.screen-off .screen { background: #030B05; }
   background: rgba(252, 254, 255, 0.95);
   color: #B4442E;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -444,16 +367,11 @@ body.screen-off .screen { background: #030B05; }
 
 /* ---------- расширенный режим ---------- */
 
-/* Окно не растягиваем: на Windows смена размера ломает прозрачность и
-   оставляет по краям белую подложку. Место для ответа освобождаем внутри. */
-body.wide .screen { height: 122px; }
-body.wide .hints,
-body.wide .brand { display: none; }
-body.wide #bubble { font-size: 14px; max-height: calc(100vh - 182px); }
+body.wide .hints { display: none; }
+body.wide .face svg { height: 56px; }
 
 /* ---------- ночь и темы корпуса ---------- */
 
-body.night #bubble { opacity: 0.94; }
 body.theme-blue .case { background: linear-gradient(160deg, #E7F0FA, #8FA8C4); border-color: #4A6A8A; }
 body.theme-red .case { background: linear-gradient(160deg, #F3E2DD, #C49A94); border-color: #8A4A42; }
 body.theme-gold .case { background: linear-gradient(160deg, #FBF1D2, #D6B770); border-color: #8A6A2E; }
