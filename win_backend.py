@@ -16,11 +16,9 @@ gdi32 = ctypes.WinDLL("gdi32")
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 # Без явных типов ctypes режет 64-битные хендлы регионов до int.
-gdi32.CreateRectRgn.restype = ctypes.c_void_p
-gdi32.CreateRectRgn.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
-gdi32.CombineRgn.restype = ctypes.c_int
-gdi32.CombineRgn.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
-gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+gdi32.CreateRoundRectRgn.restype = ctypes.c_void_p
+gdi32.CreateRoundRectRgn.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                     ctypes.c_int, ctypes.c_int, ctypes.c_int]
 user32.SetWindowRgn.restype = ctypes.c_int
 user32.SetWindowRgn.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.BOOL]
 
@@ -120,6 +118,7 @@ class Drag:
             self.bot.log("win drag: окно не найдено")
             return
         self.bot.log("win drag ok")
+        round_corners(self.hwnd)
         bot = self.bot
         while not bot.stop_flag:
             try:
@@ -163,13 +162,6 @@ class Drag:
             move(self.hwnd, bot.x, bot.y)
 
         bot.hover = over
-        if bot.shape_dirty:
-            bot.shape_dirty = False
-            # Пока страница не прислала зоны, не обрезаем: резервная зона
-            # считает роботом половину окна и срезала бы облачко.
-            if bot.regions.get("robot"):
-                shape(self.hwnd, [regions.get("robot"), regions.get("panel")]
-                      + list(regions.get("extra") or []))
         if over or self.dragging:
             bot.last_activity = time.time()
             bot.sleeping = False
@@ -274,51 +266,28 @@ def move_window(win, x, y):
 
 
 def set_click_through(win, ignore):
-    """Оставлено ради интерфейса: на Windows окно обрезается по видимым зонам
-    (см. shape), и клики мимо них не перехватываются."""
+    """На Windows окно скруглено регионом, отдельная прозрачность не нужна."""
     return None
 
 
-RGN_OR = 2
-SHAPE_MARGIN = 8  # запас под хвостик облачка и тени
+RADIUS = 18
 
 
-def _client_origin(hwnd):
-    point = wintypes.POINT(0, 0)
-    rect = wintypes.RECT()
-    if not user32.ClientToScreen(wintypes.HWND(hwnd), ctypes.byref(point)):
-        return 0, 0
-    if not user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
-        return 0, 0
-    return point.x - rect.left, point.y - rect.top
+def round_corners(hwnd):
+    """Скругляет углы окна один раз при старте.
 
-
-def shape(hwnd, rects):
-    """Обрезает окно по видимым зонам.
-
-    Окно всегда поверх и занимает угол экрана целиком — без обрезки пустая
-    полоса над облачком молча съедала клики по рабочему столу.
+    Регион статичный: менять его на лету нельзя — WebView2 не успевает
+    перерисовать появившуюся область и часть окна остаётся пустой.
     """
     if not hwnd:
         return False
-    ox, oy = _client_origin(hwnd)
-    region = None
-    for rect in rects:
-        if not rect:
-            continue
-        left = int(rect["x"]) + ox - SHAPE_MARGIN
-        top = int(rect["y"]) + oy - SHAPE_MARGIN
-        right = int(rect["x"] + rect["w"]) + ox + SHAPE_MARGIN
-        bottom = int(rect["y"] + rect["h"]) + oy + SHAPE_MARGIN
-        piece = gdi32.CreateRectRgn(left, top, right, bottom)
-        if not piece:
-            continue
-        if region is None:
-            region = piece
-        else:
-            gdi32.CombineRgn(region, region, piece, RGN_OR)
-            gdi32.DeleteObject(piece)
-    if region is None:
+    rect = wintypes.RECT()
+    if not user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
+        return False
+    width = rect.right - rect.left
+    height = rect.bottom - rect.top
+    region = gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, RADIUS, RADIUS)
+    if not region:
         return False
     # SetWindowRgn забирает регион себе — удалять его после вызова нельзя.
     return bool(user32.SetWindowRgn(wintypes.HWND(hwnd), region, True))

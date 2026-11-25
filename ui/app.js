@@ -23,6 +23,7 @@ let hideTimer = null;
 
 
 function setPanel(open) {
+  if (open) clearTimeout(hideTimer); // открытую панель не должен закрыть старый таймер
   panelOpen = open;
   $("panel").classList.toggle("show", open);
   // Поле ввода живёт в облачке — наведению нужно и его тоже показать.

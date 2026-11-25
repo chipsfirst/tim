@@ -5,7 +5,9 @@
 html, body {
   width: 100%;
   height: 100%;
-  background: transparent;
+  /* Фон окна непрозрачный: прозрачность на Windows нестабильна и вместо неё
+     проступало серое полотно. Тёмный фон читается как часть оформления. */
+  background: #14150D;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;

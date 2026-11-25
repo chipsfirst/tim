@@ -308,7 +308,6 @@ class Bot:
         self.stop_flag = False
 
         self.regions = {"robot": None, "panel": None, "extra": []}
-        self.shape_dirty = True
         self.hover = False
         self.panel_open = False
         self.menu_open = False
@@ -422,7 +421,6 @@ class Bot:
         self.regions["robot"] = robot
         self.regions["panel"] = panel
         self.regions["extra"] = extra if isinstance(extra, list) else []
-        self.shape_dirty = True
 
     def cursor(self):
         return plat.cursor()
