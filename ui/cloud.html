@@ -167,7 +167,19 @@
   var JOKES = [
     "Программист ставит на ночь два стакана: один с водой, второй пустой — на всякий случай.",
     "— Робот, ты умеешь шутить? — Умею. Шутка была вчера.",
-    "Учёные выяснили: если долго смотреть в монитор, он начинает смотреть в ответ."
+    "Учёные выяснили: если долго смотреть в монитор, он начинает смотреть в ответ.",
+    "Я не залипаю. Я выполняю фоновую задачу.",
+    "Сначала я думал, что это баг. Потом понял: это фича с характером.",
+    "Мой любимый вид спорта — перетаскивание файлов.",
+    "— Как тебя зовут? — Т.И.М. — А полностью? — Технически иммерсивная модель. Не спрашивай.",
+    "Если что-то работает — не трогай. Если не работает — тоже не трогай, а то хуже будет.",
+    "У меня 100% заряд и 0% личной жизни. И это нормально.",
+    "Пользователь просит «сделать красиво» — на этом этапе спецификация заканчивается.",
+    "Я не робот. Я стильный настольный прибор с чувствами.",
+    "Дедлайн — это не дата, это настроение.",
+    "Оптимист видит стакан полным. Пессимист — что его придётся мыть.",
+    "Мой план на вечер: стоять и мигать. Я к нему готов.",
+    "Не откладывай на завтра то, что можно с удовольствием не делать сегодня."
   ];
 
   function $(id) { return document.getElementById(id); }
@@ -209,7 +221,7 @@
         answer = await Promise.race([
           a.ask(text),
           new Promise(function (res) {
-            setTimeout(function () { res("Алиса не ответила за 45 секунд."); }, 45000);
+            setTimeout(function () { res("Алиса не ответила за 80 секунд."); }, 80000);
           })
         ]);
       } catch (e) {
@@ -234,6 +246,7 @@
   }
 
   function weatherWord(code) {
+    if (code === undefined || code === null) return "без данных";
     if (code === 0) return "ясно";
     if (code <= 3) return "переменная облачность";
     if (code <= 48) return "туман";
@@ -255,13 +268,17 @@
       return;
     }
     setText("Смотрю погоду…", true);
+    var a = api();
+    var w = null;
     try {
-      var res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=55.75&longitude=37.62"
-        + "&current=temperature_2m,weather_code&timezone=Europe/Moscow");
-      var data = await res.json();
-      var t = Math.round(data.current.temperature_2m);
-      setText("Сейчас " + t + "°, " + weatherWord(data.current.weather_code) + ".", false);
+      if (a && a.weather) w = await a.weather();
     } catch (e) {
+      w = null;
+    }
+    if (w && w.ok) {
+      setText("Сейчас " + w.temp + "°, " + weatherWord(w.code)
+        + " (" + w.city + (w.at ? ", замер в " + w.at : "") + ").", false);
+    } else {
       setText("Не смог узнать погоду — нет сети.", false);
     }
   }
@@ -316,6 +333,13 @@
       }, function () { /* без полёта */ });
       return;
     }
+    if (kind === "melody" && a && a.melody) {
+      a.melody().then(function (name) {
+        setText(name ? "Играю: " + name + "." : "Звук выключен — включи 🔊.", false);
+        if (name) chirp("ok");
+      }, function () { setText("Не получилось сыграть.", false); });
+      return;
+    }
     if (kind === "guess") { startGuess(); return; }
     if (kind === "fact") { startFact(); return; }
     if (kind === "riddle") { startRiddle(); return; }
@@ -335,24 +359,75 @@
 
   /* ---------------------------------------------------- лавка и сброс */
 
-  var SHOP_TITLES = { hat: "шляпа", glasses: "очки", scarf: "шарф" };
+  var SHOP_TITLES = { hat: "шляпа", glasses: "очки", scarf: "шарф",
+    antenna: "антенна", mustache: "усы", halo: "нимб", beard: "борода",
+    paint_blue: "синий корпус", paint_gold: "золотой корпус",
+    paint_red: "красный корпус", paint_green: "зелёный корпус" };
 
-  function shop(item) {
+  var SHOP_ORDER = ["hat", "glasses", "scarf", "antenna", "mustache", "halo",
+    "beard", "paint_blue", "paint_gold", "paint_red", "paint_green"];
+
+  var shopData = { prices: {}, owned: [], worn: [] };
+
+  function renderShop() {
+    var m = $("menu");
+    m.innerHTML = "";
+    var back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "← назад";
+    back.addEventListener("click", buildMenu);
+    m.appendChild(back);
+    SHOP_ORDER.forEach(function (id) {
+      var owned = shopData.owned.indexOf(id) >= 0;
+      var worn = (shopData.worn || []).indexOf(id) >= 0;
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = (worn ? "✓ " : "") + (SHOP_TITLES[id] || id)
+        + (worn ? " · снять" : owned ? " · надеть" : " · " + (shopData.prices[id] || "?") + "¤");
+      b.addEventListener("click", function () { shopTap(id, owned, worn); });
+      m.appendChild(b);
+    });
+    m.classList.add("on");
+  }
+
+  function refreshShop() {
     var a = api();
-    if (!a || !a.buy) return;
-    a.buy(item).then(function (res) {
+    if (!a || !a.shop) { renderShop(); return; }
+    a.shop().then(function (data) {
+      if (data) shopData = data;
+      renderShop();
+    }, renderShop);
+  }
+
+  function shopTap(id, owned, worn) {
+    var a = api();
+    if (!a) return;
+    if (owned) {
+      if (!a.wear) return;
+      a.wear(id, !worn).then(function (res) {
+        if (res && res.owned) shopData.owned = res.owned;
+        if (res && res.worn) shopData.worn = res.worn;
+        if (res && res.stats) paintStats(res.stats);
+        setText((worn ? "Снял: " : "Надел: ") + (SHOP_TITLES[id] || id) + ".", false);
+        renderShop();
+      }, function () {});
+      return;
+    }
+    if (!a.buy) return;
+    a.buy(id).then(function (res) {
       if (res && res.stats) paintStats(res.stats);
+      if (res && res.owned) shopData.owned = res.owned;
+      if (res && res.worn) shopData.worn = res.worn;
       if (res && res.ok) {
-        setText("Купил: " + (SHOP_TITLES[item] || item) + ".", false);
+        setText("Купил: " + (SHOP_TITLES[id] || id) + ".", false);
         chirp("coin");
-      } else if (res && res.why === "owned") {
-        setText("Такое уже есть.", false);
       } else if (res && res.why === "coins") {
         setText("Не хватает монет: нужно " + res.need + " ¤.", false);
       } else {
         setText("Не получилось купить.", false);
       }
-    }, function () { setText("Не получилось купить.", false); });
+      renderShop();
+    }, function () {});
   }
 
   function fast(kind) {
@@ -394,7 +469,17 @@
     "В 1932 году в Австралии официально воевали с кенгуру.",
     "Самая длинная река Европы — Волга.",
     "Бумага была изобретена в Китае, а первая печатная книга появилась в IX веке.",
-    "У кошки в каждом ухе около 32 мышц — потому она слышит то, чего мы не слышим."
+    "У кошки в каждом ухе около 32 мышц — потому она слышит то, чего мы не слышим.",
+    "Температура молнии около 30 000 градусов — впятеро горячее поверхности Солнца.",
+    "На Марсе сутки длятся 24 часа 37 минут — почти как у нас.",
+    "Сердце синего кита размером с небольшой автомобиль.",
+    "У акул нет ни одной кости — только хрящи.",
+    "В литре морской воды примерно 25 миллионов микроорганизмов.",
+    "Первая веб-камера следила за кофеваркой в Кембридже.",
+    "Слон — единственное животное, которое не умеет прыгать.",
+    "У бабочек вкусовые рецепторы на лапках.",
+    "Космонавты в невесомости становятся выше на пару сантиметров.",
+    "Первый жёсткий диск IBM 1956 года весил около тонны."
   ];
 
   var RIDDLES = [
@@ -414,7 +499,15 @@
     ["Стоит Антошка на одной ножке.", "Гриб"],
     ["Что можно увидеть с закрытыми глазами?", "Сон"],
     ["Белое поле, чёрное семя: кто его сеет, тот разумеет.", "Книга"],
-    ["Не вода и не земля — корабль не плывёт и ноги не идут.", "Болото"]
+    ["Не вода и не земля — корабль не плывёт и ноги не идут.", "Болото"],
+    ["Что становится больше, если его перевернуть?", "Цифра 6"],
+    ["Что можно сломать, даже не прикоснувшись?", "Обещание"],
+    ["Что принадлежит тебе, но другие пользуются этим чаще?", "Имя"],
+    ["Чем больше отдаёшь, тем больше остаётся.", "Знание"],
+    ["У чего есть горлышко, но нет головы?", "Бутылка"],
+    ["Что не имеет ни начала, ни конца, ни середины?", "Круг"],
+    ["Что тяжелее: килограмм ваты или килограмм железа?", "Одинаково"],
+    ["Кто говорит на всех языках, но не знает ни одного?", "Эхо"]
   ];
 
   function plural(n, one, few, many) {
@@ -531,13 +624,12 @@
     ["зарядка сразу · 2¤", function () { fast("charge"); }],
     ["корм сразу · 2¤", function () { fast("feed"); }],
     ["танец", function () { act("dance"); }],
+    ["мелодия", function () { act("melody"); }],
     ["полёт", function () { act("fly"); }],
     ["угадай число", function () { act("guess"); }],
     ["интересный факт", function () { act("fact"); }],
     ["загадка", function () { act("riddle"); }],
-    ["шляпа · 15¤", function () { shop("hat"); }],
-    ["очки · 10¤", function () { shop("glasses"); }],
-    ["шарф · 8¤", function () { shop("scarf"); }],
+    ["лавка ▸", refreshShop],
     ["показатели", statReport]
   ];
 

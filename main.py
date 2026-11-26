@@ -136,7 +136,9 @@ CHARGE_COOLDOWN = 180
 RESET_COST = 2
 
 # Лавка: что можно купить и сколько это стоит.
-SHOP = {"hat": 15, "glasses": 10, "scarf": 8}
+SHOP = {"hat": 15, "glasses": 10, "scarf": 8, "antenna": 12, "mustache": 8,
+        "halo": 25, "beard": 18, "paint_blue": 20, "paint_gold": 30,
+        "paint_red": 20, "paint_green": 20}
 
 # Робот время от времени говорит сам — мотивация и всякая чепуха.
 PHRASES = (
@@ -163,6 +165,19 @@ PHRASES = (
     "Я умею хранить секреты. Правда, до перезагрузки.",
     "Прямо сейчас кто-то застрял на той же задаче. Ты не один.",
 )
+
+# Мелодии спикером: только общественное достояние — народные и свои.
+# Темы из фильмов и игр 80-х под копирайтом, их здесь нет.
+MELODIES = {
+    "тетрис": ((659, 140), (494, 140), (523, 140), (587, 140), (523, 140), (494, 140),
+               (440, 140), (440, 140), (523, 140), (659, 140), (587, 140), (523, 140),
+               (494, 140), (494, 140), (523, 140), (587, 140), (659, 140), (523, 140),
+               (440, 140), (440, 280)),
+    "чижик": ((349, 180), (349, 180), (392, 180), (392, 180),
+              (349, 180), (349, 180), (330, 360)),
+    "джингл": ((523, 110), (659, 110), (784, 110), (1047, 220),
+               (784, 110), (659, 110), (523, 220)),
+}
 
 
 def state_path():
@@ -220,6 +235,51 @@ def latest_tag():
     except Exception as exc:
         guard("latest_tag", exc)
         return ""
+
+
+_WEATHER = {"at": 0.0, "data": None}
+
+
+def _http_json(url, timeout=8):
+    """Простой GET JSON: погода и геолокация идут отсюда, а не из страницы."""
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"User-Agent": "TIM"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.load(resp)
+
+
+def weather_now():
+    """Погода по IP: город, координаты и температура. Кэш на 10 минут."""
+    now = time.time()
+    if _WEATHER["data"] and now - _WEATHER["at"] < 600:
+        return _WEATHER["data"]
+    lat, lon, city = 55.75, 37.62, "Москва"
+    try:
+        geo = _http_json("https://ipwho.is/")
+        if geo.get("latitude") is not None:
+            lat, lon = float(geo["latitude"]), float(geo["longitude"])
+            city = geo.get("city") or city
+    except Exception as exc:
+        guard("geo", exc)
+    try:
+        url = ("https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+               "&current=temperature_2m,weather_code&timezone=auto" % (lat, lon))
+        data = _http_json(url)
+        cur = data.get("current") or {}
+        result = {
+            "ok": "temperature_2m" in cur,
+            "temp": int(round(cur.get("temperature_2m") or 0)),
+            "code": cur.get("weather_code"),
+            "city": city,
+            "at": (cur.get("time") or "")[11:16],
+        }
+    except Exception as exc:
+        guard("weather", exc)
+        result = {"ok": False, "city": city}
+    _WEATHER["data"] = result
+    _WEATHER["at"] = now
+    return result
 
 
 class Api:
@@ -317,6 +377,12 @@ class Api:
     def buy(self, item):
         return self._bot.buy(item)
 
+    def wear(self, item, on=True):
+        return self._bot.wear(item, on)
+
+    def shop(self):
+        return self._bot.shop_state()
+
     def reset_cooldown(self, kind):
         return self._bot.reset_cooldown(kind)
 
@@ -357,6 +423,12 @@ class Api:
     def check_update(self):
         return latest_tag()
 
+    def weather(self):
+        return weather_now()
+
+    def melody(self):
+        return self._bot.play_melody()
+
     def log_js(self, message, source="", line=0, level="error"):
         # Уровень приходит со страницы: обычные отметки не должны шуметь как ошибки.
         if level not in ("info", "warn", "error"):
@@ -389,8 +461,15 @@ class Bot:
         self.last_feed = float(state.get("last_feed", 0) or 0)
         self.last_charge = float(state.get("last_charge", 0) or 0)
         self.quit_armed = 0.0
-        owned = state.get("cosmetics") or []
-        self.cosmetics = set(x for x in owned if x in SHOP) if isinstance(owned, list) else set()
+        worn = state.get("cosmetics") or []
+        self.cosmetics = set(x for x in worn if x in SHOP) if isinstance(worn, list) else set()
+        # Старые профили не знали «куплено» отдельно: что надето, то и куплено.
+        # None (поля нет) — не то же самое, что пустой список: иначе надетое
+        # снова становится товаром в лавке.
+        bought = state.get("owned")
+        self.owned = (set(x for x in bought if x in SHOP) if isinstance(bought, list)
+                      else set(self.cosmetics))
+        self.owned |= self.cosmetics
         self._phrase = ""
 
         self.regions = {"robot": None, "panel": None, "extra": []}
@@ -547,6 +626,7 @@ class Bot:
         threading.Thread(target=self._stats_loop, daemon=True).start()
         threading.Thread(target=self._ambient_loop, daemon=True).start()
         threading.Thread(target=self._phrase_loop, daemon=True).start()
+        threading.Thread(target=self._melody_loop, daemon=True).start()
 
     def _stats_loop(self):
         ticks = 0
@@ -609,6 +689,7 @@ class Bot:
             data["last_charge"] = self.last_charge
             data["sound"] = self.sound
             data["cosmetics"] = sorted(self.cosmetics)
+            data["owned"] = sorted(self.owned)
             write_state(data)
         except Exception as exc:
             guard("save_stats", exc)
@@ -660,6 +741,38 @@ class Bot:
                 guard("phrase", exc)
             time.sleep(random.uniform(900, 1800))
 
+    def _melody_loop(self):
+        """Раз в 20–40 минут — короткая мелодия, если звук включён."""
+        time.sleep(random.uniform(120, 300))
+        while True:
+            try:
+                if self.sound and not self.asking:
+                    self.play_melody()
+            except Exception as exc:
+                guard("melody loop", exc)
+            time.sleep(random.uniform(1200, 2400))
+
+    def play_melody(self, name=None):
+        """Пищит спикером: работает и без клика по облачку."""
+        if not self.sound or sys.platform != "win32" or not MELODIES:
+            return ""
+        if name not in MELODIES:
+            name = random.choice(list(MELODIES))
+        notes = MELODIES[name]
+
+        def run():
+            try:
+                import winsound
+
+                for freq, ms in notes:
+                    winsound.Beep(int(freq), int(ms))
+            except Exception as exc:
+                guard("melody", exc)
+
+        threading.Thread(target=run, daemon=True).start()
+        log("melody %s" % name)
+        return name
+
     def say_phrase(self):
         if self.cloud is None or self.cloud_visible or self.asking:
             return False
@@ -669,7 +782,7 @@ class Bot:
         if not self.show_cloud(phrase, False):
             return False
         self._phrase = phrase
-        self.set_face("happy")
+        self.set_face(random.choice(("happy", "cool", "wink", "peace")))
         threading.Timer(2.0, lambda: self.set_face("idle")).start()
         threading.Timer(24, self._hide_phrase).start()
         self.chirp("blip")
@@ -714,22 +827,51 @@ class Bot:
         price = SHOP.get(item)
         if price is None:
             return {"ok": False, "why": "unknown", "stats": self.public_stats()}
-        if item in self.cosmetics:
+        if item in self.owned:
             return {"ok": False, "why": "owned", "stats": self.public_stats()}
         if self.stats["coins"] < price:
             self.chirp("bad")
             return {"ok": False, "why": "coins", "need": price,
                     "stats": self.public_stats()}
         self.stats["coins"] -= price
+        self.owned.add(item)
         self.cosmetics.add(item)
         self.save_stats()
         self.push_stats()
         if self.mascot is not None:
             self.mascot.set_cosmetics(self.cosmetics)
         self.chirp("coin")
+        self.set_face("cheeky")
+        threading.Timer(1.4, lambda: self.set_face("idle")).start()
         log("bought %s for %d" % (item, price))
         return {"ok": True, "stats": self.public_stats(),
                 "owned": sorted(self.cosmetics)}
+
+    def wear(self, item, on=True):
+        """Снять или надеть уже купленную вещь: деньги не тратятся."""
+        state = {"stats": self.public_stats(), "owned": sorted(self.owned),
+                 "worn": sorted(self.cosmetics)}
+        if item not in SHOP:
+            state.update(ok=False, why="unknown")
+            return state
+        if item not in self.owned:
+            state.update(ok=False, why="not_owned")
+            return state
+        if on:
+            self.cosmetics.add(item)
+        else:
+            self.cosmetics.discard(item)
+        self.save_stats()
+        self.push_stats()
+        if self.mascot is not None:
+            self.mascot.set_cosmetics(self.cosmetics)
+        log("%s %s" % ("wore" if on else "wore off", item))
+        state.update(ok=True, worn=sorted(self.cosmetics))
+        return state
+
+    def shop_state(self):
+        return {"coins": int(self.stats["coins"]), "prices": dict(SHOP),
+                "owned": sorted(self.owned), "worn": sorted(self.cosmetics)}
 
     def add_coins(self, n=1):
         self.stats["coins"] = int(self.stats["coins"]) + int(n)
@@ -1145,7 +1287,7 @@ class Bot:
         # Вопрос идёт через страницу: окно Алисы не показываем, а если его
         # открыли вручную (вход) — прячем перед отправкой.
         self._wake_alice(win)
-        probe = text.lower()[:60]
+        probe = text.strip().lower()
         try:
             sent = win.evaluate_js(SUBMIT_JS % json.dumps(text))
             log("alice submit: %s" % sent)
@@ -1172,7 +1314,7 @@ class Bot:
         # Баннер «Войдите в аккаунт» висит на странице всегда, даже когда
         # чат отвечает анонимно — по нему нельзя судить, есть ли сессия.
         started = time.time()
-        deadline = started + 40
+        deadline = started + 75
         candidate = ""
         while time.time() < deadline:
             if self.cancel_ask:
@@ -1195,7 +1337,9 @@ class Bot:
                 log("alice: чат не открылся — нужен вход", "warn")
                 self.show_alice()
                 return "Нужно войти в Алису: нажми ⌗ в облачке, войди — и спроси ещё раз."
-            echo = now.strip().lower().startswith(probe)
+            # Эхо — это вернувшийся сам вопрос, а не ответ, который просто
+            # начинается с того же слова («привет» → «Привет! Рада видеть»).
+            echo = now.strip().lower().rstrip(" .!?…") == probe
             if echo:
                 candidate = ""
                 continue

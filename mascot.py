@@ -21,10 +21,10 @@ user32.DefWindowProcW.restype = ctypes.c_ssize_t
 user32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT,
                                  ctypes.c_size_t, ctypes.c_ssize_t]
 
-W, H = 130, 156
+W, H = 168, 140
 WING = 16  # поля под крылья по бокам корпуса
 WB = W + WING * 2
-SCALE = 180 / W  # 180 px по ширине корпуса
+SCALE = 210 / W  # 210 px по ширине корпуса
 DW, DH = int(WB * SCALE), int(H * SCALE)
 
 WS_EX_LAYERED = 0x00080000
@@ -61,6 +61,10 @@ EYE = (110, 255, 165)
 PUPIL = (12, 44, 22)
 MOUTH = (60, 255, 134)
 
+# Покраски корпуса из лавки.
+PAINTS = {"paint_blue": (199, 214, 231), "paint_gold": (233, 205, 140),
+          "paint_red": (216, 168, 158), "paint_green": (186, 210, 174)}
+
 class BLENDFUNCTION(ctypes.Structure):
     _fields_ = [("BlendOp", ctypes.c_ubyte), ("BlendFlags", ctypes.c_ubyte),
                 ("SourceConstantAlpha", ctypes.c_ubyte), ("AlphaFormat", ctypes.c_ubyte)]
@@ -91,7 +95,7 @@ class WNDCLASS(ctypes.Structure):
                 ("lpszMenuName", wintypes.LPCWSTR), ("lpszClassName", wintypes.LPCWSTR)]
 
 
-FACES = ("idle", "blink", "left", "right", "happy", "laugh", "sleep",
+FACES = ("idle", "blink", "left", "right", "happy", "laugh", "sleep", "cool", "cheeky", "bored", "peace",
          "think", "sad", "angry", "surprise", "wink", "curious",
          "love", "dizzy", "yawn", "smirk")
 
@@ -114,6 +118,10 @@ SPECS = {
     "dizzy":    ("cross", "down", 0, "o"),
     "yawn":     ("closed", "down", 0, "o"),
     "smirk":    ("half", "one_up", 0, "smile"),
+    "cool":     ("squint", "flat", 0, "flat"),
+    "cheeky":   ("wink", "high", 0, "grin"),
+    "bored":    ("half", "down", 0, "flat"),
+    "peace":    ("closed", "flat", 0, "smile"),
 }
 
 
@@ -136,10 +144,66 @@ ICONS = {
     "sleep": ("0111", "1100", "1000", "1100", "0111"),
 }
 
-# Строка показателей на экране: заряд, здоровье, сон.
-STAT_KEYS = (("batt", (255, 226, 138)),
-             ("hp", (255, 156, 150)),
-             ("sleep", (168, 214, 255)))
+# Латинские буквы для матричного дождя: 3×5, как цифры.
+LETTERS = {
+    "A": ("010", "101", "111", "101", "101"),
+    "B": ("110", "101", "110", "101", "110"),
+    "C": ("011", "100", "100", "100", "011"),
+    "D": ("110", "101", "101", "101", "110"),
+    "E": ("111", "100", "110", "100", "111"),
+    "F": ("111", "100", "110", "100", "100"),
+    "G": ("011", "100", "101", "101", "011"),
+    "H": ("101", "101", "111", "101", "101"),
+    "I": ("111", "010", "010", "010", "111"),
+    "J": ("001", "001", "001", "101", "010"),
+    "K": ("101", "101", "110", "101", "101"),
+    "L": ("100", "100", "100", "100", "111"),
+    "M": ("101", "111", "111", "101", "101"),
+    "N": ("101", "111", "111", "111", "101"),
+    "O": ("010", "101", "101", "101", "010"),
+    "P": ("110", "101", "110", "100", "100"),
+    "Q": ("010", "101", "101", "111", "011"),
+    "R": ("110", "101", "110", "101", "101"),
+    "S": ("011", "100", "010", "001", "110"),
+    "T": ("111", "010", "010", "010", "010"),
+    "U": ("101", "101", "101", "101", "111"),
+    "V": ("101", "101", "101", "101", "010"),
+    "W": ("101", "101", "111", "111", "101"),
+    "X": ("101", "101", "010", "101", "101"),
+    "Y": ("101", "101", "010", "010", "010"),
+    "Z": ("111", "001", "010", "100", "111"),
+}
+
+RAIN = dict(DIGITS, **LETTERS)
+RAIN_CHARS = tuple(RAIN)
+
+# Редкие вставки: слова, которые иногда всплывают в потоке.
+RAIN_WORDS = ("SLEEP", "TIME", "404", "0101", "WAKE", "777", "SYS")
+
+
+def draw_rain(d, seed):
+    """Матричный дождь: цифры и буквы падают по экрану."""
+    rnd = random.Random(seed)
+    for x in range(34, 134, 4):
+        if rnd.random() < 0.2:
+            continue
+        head = rnd.randint(12, 96)
+        tail = rnd.randint(4, 9)
+        for i in range(tail):
+            y = head - i * 6
+            if y < 10 or y + 5 > 104:
+                continue
+            ch = RAIN_CHARS[rnd.randrange(len(RAIN_CHARS))]
+            if i == 0:
+                color = (180, 255, 200)
+            else:
+                color = (40, max(40, 150 - i * 14), 70)
+            _bitmap(d, x, y, RAIN[ch], color, 1)
+
+# Строка показателей на корпусе: цвета тёмные, потому что фон бежевый.
+STAT_KEYS = (("batt", (166, 118, 26)),
+             ("hp", (172, 70, 70)),
+             ("sleep", (72, 100, 150)))
 
 
 def _bitmap(d, x, y, rows, color, k=1):
@@ -154,43 +218,39 @@ def _bitmap(d, x, y, rows, color, k=1):
 
 
 def draw_stats(stats, size=None):
-    """Слой шкал на готовом кадре: цифры не масштабируются и остаются чёткими."""
+    """Слой шкал: цифры над иконками, столбик на левом боку корпуса."""
     width, height = size or (DW, DH)
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    k = max(1, int(round(width / 100.0)))  # 180 px → цифры вдвое крупнее
-    glyph_w = 3 * k + k
-    group = 5 * k + k + 3 * glyph_w
-    # Ряд живёт внутри экрана, а не от края окна: считаем от рамки кинескопа.
-    left = int((WING + 13) * SCALE)
-    right = int((WING + W - 13) * SCALE)
-    gap = max(2, (right - left - 3 * group) // 4)
-    x = left + gap
-    step = group + gap
-    y = int(12 * SCALE) + max(3, int(4 * SCALE))
-    for key, color in STAT_KEYS:
-        _bitmap(d, x, y, ICONS[key], color, k)
+    k = 2
+    cell = 4 * k
+    x = int((WING + 12) * SCALE)
+    for index, (key, color) in enumerate(STAT_KEYS):
+        top = int((17 + index * 29) * SCALE)
         value = str(max(0, min(999, int(stats.get(key, 100)))))
-        for index, ch in enumerate(value):
+        for pos, ch in enumerate(value):
             glyph = DIGITS.get(ch)
             if glyph:
-                _bitmap(d, x + 5 * k + k + index * glyph_w, y, glyph, color, k)
-        x += step
+                _bitmap(d, x + pos * cell, top, glyph, color, k)
+        icon = ICONS[key]
+        icon_x = x
+        _bitmap(d, icon_x, top + 5 * k + 2, icon, color, k)
     return img
 
 
 KEYS = ("power", "menu", "sleep", "sound")
-KEY_Y = 114
-KEY_R = 9
+KEY_CX = 147        # столбик кнопок на правом боку корпуса
+KEY_TOP = 21
+KEY_STEP = 24
+KEY_R = 7
 KEY_INK = (86, 79, 64)
 KEY_FACE = (226, 219, 202)
 
 
 def key_box(index):
-    """Прямоугольник кнопки на корпусе: четыре штуки в ряд под экраном."""
-    step = 26
-    cx = (W - step * 3) // 2 + index * step
-    return cx - KEY_R, KEY_Y - KEY_R, cx + KEY_R, KEY_Y + KEY_R
+    """Прямоугольник кнопки: четыре штуки в столбик на правом боку."""
+    cy = KEY_TOP + index * KEY_STEP
+    return KEY_CX - KEY_R, cy - KEY_R, KEY_CX + KEY_R, cy + KEY_R
 
 
 def work_area():
@@ -214,49 +274,55 @@ def _draw_keys(d):
         box = key_box(index)
         d.ellipse(box, fill=KEY_FACE, outline=CASE_EDGE)
         cx = (box[0] + box[2]) // 2
+        cy = (box[1] + box[3]) // 2
         if name == "power":
-            d.arc([cx - 4, KEY_Y - 5, cx + 4, KEY_Y + 3], 300, 240, fill=KEY_INK)
-            d.line([cx, KEY_Y - 5, cx, KEY_Y - 2], fill=KEY_INK)
+            d.arc([cx - 4, cy - 5, cx + 4, cy + 3], 300, 240, fill=KEY_INK)
+            d.line([cx, cy - 5, cx, cy - 2], fill=KEY_INK)
         elif name == "menu":
             for dy in (-3, 0, 3):
-                d.line([cx - 4, KEY_Y + dy, cx + 4, KEY_Y + dy], fill=KEY_INK)
+                d.line([cx - 4, cy + dy, cx + 4, cy + dy], fill=KEY_INK)
         elif name == "sleep":
-            d.ellipse([cx - 4, KEY_Y - 5, cx + 4, KEY_Y + 3], fill=KEY_INK)
-            d.ellipse([cx - 1, KEY_Y - 6, cx + 6, KEY_Y + 2], fill=KEY_FACE)
+            d.ellipse([cx - 4, cy - 5, cx + 4, cy + 3], fill=KEY_INK)
+            d.ellipse([cx - 1, cy - 6, cx + 6, cy + 2], fill=KEY_FACE)
         else:  # sound
-            d.polygon([(cx - 5, KEY_Y - 1), (cx - 2, KEY_Y - 1), (cx + 1, KEY_Y - 5),
-                       (cx + 1, KEY_Y + 3), (cx - 2, KEY_Y + 2), (cx - 5, KEY_Y + 2)],
+            d.polygon([(cx - 5, cy - 1), (cx - 2, cy - 1), (cx + 1, cy - 5),
+                       (cx + 1, cy + 3), (cx - 2, cy + 2), (cx - 5, cy + 2)],
                       fill=KEY_INK)
-            d.arc([cx + 1, KEY_Y - 4, cx + 7, KEY_Y + 4], 300, 60, fill=KEY_INK)
+            d.arc([cx + 1, cy - 4, cx + 7, cy + 4], 300, 60, fill=KEY_INK)
 
 
-def draw_robot(face="idle", cosmetics=()):
-    """Кадр робота: маленький кинескоп с живой мимикой."""
+def draw_robot(face="idle", cosmetics=(), seed=None, word=None):
+    """Кадр робота: маленький кинескоп с живой мимикой.
+
+    seed не None — вместо лица на экране матричный дождь (сон).
+    """
     cosmetics = cosmetics or ()
     eye, brow, look, mouth = SPECS.get(face, SPECS["idle"])
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    # корпус
-    d.rounded_rectangle([7, 4, W - 7, 128], radius=11, fill=CASE,
+    # корпус по сетке: слева шкалы, в центре квадратный экран, справа кнопки
+    case_fill = CASE
+    for name, color in PAINTS.items():
+        if name in cosmetics:
+            case_fill = color
+            break
+    d.rounded_rectangle([7, 4, W - 7, 110], radius=11, fill=case_fill,
                         outline=CASE_EDGE, width=2)
-    d.rounded_rectangle([13, 12, W - 13, 96], radius=6, fill=SCREEN,
+    d.rounded_rectangle([32, 10, 136, 104], radius=6, fill=SCREEN,
                         outline=(33, 33, 26))
-
-    for y in range(14, 96, 3):
-        d.line([15, y, W - 15, y], fill=SCAN)
+    for y in range(12, 104, 3):
+        d.line([34, y, 134, y], fill=SCAN)
 
     # геометрия лица: всё считается от центра экрана
-    screen_x, screen_y = 13, 12
-    screen_w, screen_h = W - 26, 84
+    screen_x = 32
+    screen_w = 104
     eye_w, eye_h = 14, 11
-    gap = 26
+    gap = 24
     total = eye_w * 2 + gap
     left = screen_x + (screen_w - total) // 2
     right = left + eye_w + gap
-    block_h = 3 + 3 + eye_h + 8 + 8
-    top = 44  # ниже строки показателей
-    eye_y = top
+    eye_y = 42
     mouth_y = eye_y + eye_h + 8
 
     for x in (left, right):
@@ -284,7 +350,7 @@ def draw_robot(face="idle", cosmetics=()):
             d.rectangle([x, eye_y, x + eye_w, eye_y + eye_h], fill=EYE)
 
     # рот
-    cx = W // 2
+    cx = (32 + 136) // 2
     my = mouth_y
     if mouth == "smile":
         d.rectangle([cx - 17, my + 1, cx - 8, my + 4], fill=MOUTH)
@@ -305,13 +371,34 @@ def draw_robot(face="idle", cosmetics=()):
     else:  # tiny
         d.rectangle([cx - 8, my + 2, cx + 8, my + 4], fill=MOUTH)
 
+    if "mustache" in cosmetics:
+        d.rectangle([cx - 20, my - 3, cx + 20, my], fill=(74, 62, 52))
+    if "beard" in cosmetics:
+        d.polygon([(cx - 12, my + 9), (cx + 12, my + 9), (cx + 5, my + 17), (cx - 5, my + 17)],
+                  fill=(92, 78, 66))
+
     # кнопки на корпусе
     _draw_keys(d)
 
+    if seed is not None:
+        # Сон: на экране матричный дождь вместо лица.
+        d.rounded_rectangle([32, 10, 136, 104], radius=6, fill=SCREEN,
+                            outline=(33, 33, 26))
+        for y in range(12, 104, 3):
+            d.line([34, y, 134, y], fill=SCAN)
+        draw_rain(d, seed)
+        if word:
+            y = 22
+            for ch in word:
+                glyph = RAIN.get(ch)
+                if glyph:
+                    _bitmap(d, 66, y, glyph, (200, 255, 215), 1)
+                y += 8
+
     # косметика: шарф на шее, очки поверх глаз, шляпа на макушке
     if "scarf" in cosmetics:
-        d.rectangle([13, 97, W - 13, 104], fill=(196, 86, 74))
-        d.rectangle([13, 100, W - 13, 102], fill=(176, 72, 62))
+        d.rectangle([30, 105, 138, 110], fill=(196, 86, 74))
+        d.rectangle([30, 107, 138, 109], fill=(176, 72, 62))
     if "glasses" in cosmetics:
         for x in (left, right):
             d.rectangle([x - 2, eye_y - 2, x + eye_w + 2, eye_y + eye_h + 2],
@@ -319,22 +406,27 @@ def draw_robot(face="idle", cosmetics=()):
         d.line([left + eye_w + 2, eye_y + eye_h // 2,
                 right - 2, eye_y + eye_h // 2], fill=(150, 205, 215))
     if "hat" in cosmetics:
-        d.rectangle([W // 2 - 28, 9, W // 2 + 28, 12], fill=(58, 52, 46))
-        d.rectangle([W // 2 - 16, 0, W // 2 + 16, 9], fill=(58, 52, 46))
-        d.rectangle([W // 2 - 16, 6, W // 2 + 16, 9], fill=(170, 64, 58))
+        d.rectangle([W // 2 - 52, 9, W // 2 + 52, 12], fill=(58, 52, 46))
+        d.rectangle([W // 2 - 24, 0, W // 2 + 24, 9], fill=(58, 52, 46))
+        d.rectangle([W // 2 - 24, 6, W // 2 + 24, 9], fill=(170, 64, 58))
+    if "antenna" in cosmetics:
+        d.line([30, 9, 23, 3], fill=(120, 112, 98), width=2)
+        d.ellipse([19, 0, 27, 8], fill=(226, 96, 88))
+    if "halo" in cosmetics:
+        d.ellipse([W // 2 - 26, 0, W // 2 + 26, 7], outline=(240, 205, 110), width=2)
 
     # подставка
-    d.polygon([(W // 2 - 9, 128), (W // 2 + 9, 128), (W // 2 + 13, 141), (W // 2 - 13, 141)],
+    d.polygon([(W // 2 - 9, 110), (W // 2 + 9, 110), (W // 2 + 13, 123), (W // 2 - 13, 123)],
               fill=(173, 162, 139), outline=CASE_EDGE)
-    d.rounded_rectangle([W // 2 - 27, 141, W // 2 + 27, 151], radius=4,
+    d.rounded_rectangle([W // 2 - 27, 123, W // 2 + 27, 135], radius=4,
                         fill=(201, 193, 174), outline=CASE_EDGE, width=2)
     return img
 
 
-def body_frame(face="idle", cosmetics=()):
+def body_frame(face="idle", cosmetics=(), seed=None, word=None):
     """Корпус по центру широкого холста: по краям место для крыльев."""
     canvas = Image.new("RGBA", (WB, H), (0, 0, 0, 0))
-    canvas.alpha_composite(draw_robot(face, cosmetics), (WING, 0))
+    canvas.alpha_composite(draw_robot(face, cosmetics, seed, word), (WING, 0))
     return canvas
 
 
@@ -412,6 +504,11 @@ class Mascot:
         self._mimic_until = 0.0
         self._last_mimic = time.time()
         self._proc = WNDPROC(self._wndproc)
+        self._rain = []
+        self._rain_i = 0
+        self._word_frames = []
+        self._word_left = 0
+        self._word_i = 0
 
     # ------------------------------------------------------------ кадры
 
@@ -423,6 +520,18 @@ class Mascot:
             self.frames[name] = data
             if name == "idle":
                 self.mask = mask
+        # Кадры матричного дождя: сон показывает их по очереди.
+        self._rain = [
+            premultiplied(body_frame("sleep", self.cosmetics, seed=k)
+                          .resize((DW, DH), Image.LANCZOS))[0]
+            for k in range(6)
+        ]
+        self._rain_i = 0
+        self._word_frames = [
+            premultiplied(body_frame("sleep", self.cosmetics, seed=20 + i, word=w)
+                          .resize((DW, DH), Image.LANCZOS))[0]
+            for i, w in enumerate(RAIN_WORDS)
+        ]
 
     def set_cosmetics(self, items):
         """Купленная косметика: пересобираем кадры в потоке окна."""
@@ -524,7 +633,19 @@ class Mascot:
         if not self.hwnd:
             return
         face = self._current_face()
-        data = self._frame(face)
+        if face == 'sleep' and self._rain:
+            if self._word_left > 0:
+                self._word_left -= 1
+                data = self._word_frames[self._word_i % len(self._word_frames)]
+            elif self._word_frames and random.random() < 0.02:
+                self._word_i = random.randrange(len(self._word_frames))
+                self._word_left = 2
+                data = self._word_frames[self._word_i]
+            else:
+                data = self._rain[self._rain_i % len(self._rain)]
+                self._rain_i += 1
+        else:
+            data = self._frame(face)
         screen_dc = user32.GetDC(None)
         mem_dc = gdi32.CreateCompatibleDC(screen_dc)
         info = BITMAPINFO()
@@ -648,6 +769,8 @@ class Mascot:
                 changed = True
         if self.flying:
             changed = self._fly_tick() or changed
+        if self.face == 'sleep':
+            changed = True  # дождь должен течь
         if changed or self._pending_repaint:
             self._pending_repaint = False
             self._paint()

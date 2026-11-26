@@ -84,7 +84,7 @@ class AliceTest(unittest.TestCase):
 
     def test_echo_guard_present(self):
         src = read("main.py")
-        self.assertIn("echo = now.strip().lower().startswith(probe)", src,
+        self.assertIn('echo = now.strip().lower().rstrip(" .!?…") == probe', src,
                       "ответ-эхо снова может попасть в интерфейс")
 
     def test_answer_logged(self):
